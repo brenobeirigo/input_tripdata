@@ -5,6 +5,7 @@ from multiprocessing import Pool
 import osmnx as ox
 from functools import partial
 import network_gen as nw
+import config
 
 
 def download_file(url, root_path, file_name):
@@ -17,7 +18,7 @@ def download_file(url, root_path, file_name):
 
     output_file = "{}/{}".format(root_path, file_name)
 
-    print("Laoding  '{}'".format(output_file))
+    print("Loading  '{}'".format(output_file))
 
     if not os.path.exists(output_file):
         print("Downloading {}".format(url))
@@ -25,11 +26,7 @@ def download_file(url, root_path, file_name):
         open(output_file, 'wb').write(r.content)
 
 
-def get_trip_data(root_path, tripdata_filename, output_filename, start, stop):
-
-    # Output filepath
-    output_path = "{}/{}.csv".format(root_path, output_filename)
-    tripdata_path = "{}/{}".format(root_path, tripdata_filename)
+def get_trip_data(tripdata_path, output_path, start, stop):
 
     print("files:", output_path, tripdata_path)
 
@@ -61,9 +58,14 @@ def get_trip_data(root_path, tripdata_filename, output_filename, start, stop):
                                   usecols=filtered_columns,
                                   na_values='0')
 
-        # Get valentine's day data
-        tripdata_dt_excerpt = pd.DataFrame(
-            tripdata_dt.loc[(tripdata_dt.index >= start) & (tripdata_dt.index <= stop)])
+        tripdata_dt_excerpt = None
+
+        # Get excerpt
+        if start and stop:
+            tripdata_dt_excerpt = pd.DataFrame(
+                tripdata_dt.loc[(tripdata_dt.index >= start) & (tripdata_dt.index <= stop)])
+        else:
+            tripdata_dt_excerpt = pd.DataFrame(tripdata_dt)
 
         # Remove None values
         tripdata_dt_excerpt.dropna(inplace=True)
@@ -149,106 +151,95 @@ def add_ids_chunk(G, distance_dic_m, info):
     return info
 
 
-def add_ids(file_name, tripdata_filename, root_path, G, distance_dic_m):
+def add_ids(path_tripdata,
+            path_tripdata_ids,
+            G,
+            distance_dic_m):
 
-    path_tripdata = "{}/{}.csv".format(root_path, tripdata_filename)
-    file_path_out = "{}/{}.csv".format(root_path, file_name)
+    dt = None
 
-    print("############ NY trip data ", path_tripdata, file_path_out)
-    tripdata = pd.read_csv(path_tripdata)
+    # if file does not exist write header
+    if os.path.isfile(path_tripdata_ids):
+    
+        # Load tripdata
+        dt = pd.read_csv(path_tripdata_ids,
+                            parse_dates=True,
+                            index_col="pickup_datetime")
 
-    tripdata.info()
+        print("\nLoading trip data with ids...'{}'.".format(path_tripdata_ids))
 
-    # Number of lines to read from huge .csv
-    chunksize = 500
+    else:
 
-    # Redefine function to add graph and distances
-    func = partial(add_ids_chunk, G, distance_dic_m)
+        print("############ NY trip data ", path_tripdata, path_tripdata_ids)
+        tripdata = pd.read_csv(path_tripdata)
 
-    # Total number of lines
-    togo = int(len(tripdata)/chunksize)
+        tripdata.info()
 
-    # Read chunks of 500 lines
-    # NY data filtered
-    count = 0
-    count_lines = 0
+        # Number of lines to read from huge .csv
+        chunksize = 2000
 
-    # Multiprocesses
-    n_mp = 4
-    p = Pool(n_mp)
+        # Redefine function to add graph and distances
+        func = partial(add_ids_chunk, G, distance_dic_m)
 
-    list_parallel = []
+        # Total number of lines
+        togo = int(len(tripdata)/chunksize)
 
-    gen_chunks = pd.read_csv(
-        path_tripdata, index_col=False, chunksize=chunksize)
+        # Read chunks of 500 lines
+        # NY data filtered
+        count = 0
+        count_lines = 0
 
-    next_batch = next(gen_chunks)
-    list_parallel.append(next_batch)
+        # Multiprocesses
+        n_mp = 8
+        p = Pool(n_mp)
 
-    while next_batch is not None:
+        list_parallel = []
 
-        try:
-            next_batch = next(gen_chunks)
-            list_parallel.append(next_batch)
-        except:
-            next_batch = None
+        gen_chunks = pd.read_csv(
+            path_tripdata, index_col=False, chunksize=chunksize)
 
-        # if info < chunksize, end reached. Process whatever is in parallel list
-        if len(list_parallel) == n_mp or next_batch is None:
+        next_batch = next(gen_chunks)
+        list_parallel.append(next_batch)
 
-            count = count + len(list_parallel)
-            count_lines = count_lines + sum(map(len, list_parallel))
+        while next_batch is not None:
 
-            chunks_with_ids = p.map(func, list_parallel)
+            try:
+                next_batch = next(gen_chunks)
+                list_parallel.append(next_batch)
+            except:
+                next_batch = None
 
-            for info_ids in chunks_with_ids:
+            # if info < chunksize, end reached. Process whatever is in parallel list
+            if len(list_parallel) == n_mp or next_batch is None:
 
-                # if file does not exist write header
-                if not os.path.isfile(file_path_out):
+                count = count + len(list_parallel)
+                count_lines = count_lines + sum(map(len, list_parallel))
 
-                    info_ids.to_csv(file_path_out,
-                                    index=False)
+                chunks_with_ids = p.map(func, list_parallel)
 
-                # else it exists so append without writing the header
-                else:
-                    info_ids.to_csv(file_path_out,
-                                    mode="a",
-                                    header=False,
-                                    index=False)
+                for info_ids in chunks_with_ids:
 
-            list_parallel.clear()
-            print(count, "/", togo, " (", count_lines, "/", len(tripdata), ")")
+                    # if file does not exist write header
+                    if not os.path.isfile(path_tripdata_ids):
 
-    print("############ Manhattan trip data")
+                        info_ids.to_csv(path_tripdata_ids,
+                                        index=False)
 
-    dt = pd.read_csv(file_path_out).info()
-    #dt.sort_index(inplace=True)
-    #dt.to_csv(file_path_out, index=False)
+                    # else it exists so append without writing the header
+                    else:
+                        info_ids.to_csv(path_tripdata_ids,
+                                        mode="a",
+                                        header=False,
+                                        index=False)
 
+                list_parallel.clear()
+                print(count, "/", togo, " (", count_lines, "/", len(tripdata), ")")
 
-def process_trip_data(root_path, excerpt_name, start, stop, G=None, cut=False):
+        # Load tripdata
+        dt = pd.read_csv(path_tripdata_ids, parse_dates=True,
+                         index_col="pickup_datetime")
+        print("\nLoading trip data with ids (after processing)...'{}'.".format(
+            path_tripdata_ids))
 
-    # TLC Taxicab Feb 2011
-    file_url = "https://s3.amazonaws.com/nyc-tlc/trip+data/yellow_tripdata_2011-02.csv"
-    tripdata_filename = file_url.split("/")[-1]
-
-    # Tripdata root
-    root_tripdata = root_path + "/tripdata"
-    if not os.path.exists(root_tripdata):
-        os.makedirs(root_tripdata)
-
-    # Download trip data if not exists
-    download_file(file_url, root_tripdata, tripdata_filename)
-
-    # Get excerpt (start, stop)
-    if cut:
-        dt_tripdata = get_trip_data(
-            root_tripdata, tripdata_filename, excerpt_name, start, stop)
-
-    # If network is given, save file with network ids
-    if G:
-
-        distance_dic_m = nw.get_distance_dic(G, root_path)
-        # Adding ids to user locations
-        add_ids(excerpt_name+"_ids", excerpt_name,
-                root_tripdata, G, distance_dic_m)
+    print(dt.head())
+    print(dt.describe())
