@@ -43,6 +43,21 @@ def node_access(G, node, degree=1, direction="backward"):
 
 
 def is_reachable(G, node, degree):
+    """Check if node can be accessed by a chain trail (backwards and frontward)
+    of "degree" nodes.
+
+    This guarantees the node is not isolated since it is reachable and
+    can reach others.
+    
+    Arguments:
+        G {networkx} -- Graph that the node belongs too
+        node {int} -- Id of node to test reachability
+        degree {int} -- Minimum length of path
+    
+    Returns:
+        boolean -- True, if node can be reached and reach others
+    """
+
 
     pre = list(G.predecessors(node))
     suc = list(G.successors(node))
@@ -80,6 +95,18 @@ def mapping(x):
 
 
 def load_network(filename, folder=None):
+    """Load and return graph network.
+    
+    Arguments:
+        filename {string} -- Name of network
+    
+    Keyword Arguments:
+        folder {string} -- Target folder (default: {None})
+    
+    Returns:
+        networkx or None -- The loaded network or None if not found
+    """
+
 
     path = "{}/{}".format(folder, filename)
     print("Loading ", path)
@@ -93,7 +120,16 @@ def load_network(filename, folder=None):
     return ox.load_graphml(filename=filename, folder=folder)
 
 
-def download_network(region, network_type, root=None):
+def download_network(region, network_type):
+    """Download network from OSM representing the region.
+    
+    Arguments:
+        region {string} -- Location. E.g., "Manhattan Island, New York City, New York, USA"
+        network_type {string} -- Options: drive, drive_service, walk, bike, all, all_private
+    
+    Returns:
+        networkx -- downloaded networkx
+    """
 
     # Download graph
     G = ox.graph_from_place(region, network_type=network_type)
@@ -122,7 +158,16 @@ def get_list_coord(G, o, d):
 
 
 def get_point(G, p, **kwargs):
-
+    """Get geojson point from node id
+    
+    Arguments:
+        G {networkx} -- Base graph
+        p {int} -- Node id
+    
+    Returns:
+        dict -- Point geojson
+    """
+    
     point = {"type": "Feature", "properties": kwargs, "geometry": {
         "type": "Point", "coordinates":  [G.node[p]["x"], G.node[p]["y"]]}}
 
@@ -168,26 +213,6 @@ def get_linestring(G, o, d, **kwargs):
 def get_sp(G, o, d):
     return nx.shortest_path(G, source=o, target=d)
 
-
-def get_graph():
-
-    # Street network
-    H = None
-
-    # Try loading region
-    try:
-        H = load_network(config.tripdata["region"], folder=config.root_path)
-        # Print G description
-        print("#NODES: {} ({} -> {}) -- #EDGES: {}".format(len(H.nodes()),
-                                                           min(H.nodes()), max(H.nodes()), len(H.edges())))
-
-    except Exception as e:
-        print("Graph does not exist!")
-        print(e)
-    finally:
-        return H
-
-
 def get_network_from(region, root_path, graph_name, graph_filename):
     """Download network from region. If exists, load.
     
@@ -200,8 +225,6 @@ def get_network_from(region, root_path, graph_name, graph_filename):
     Returns:
         [networkx] -- Graph loaeded or downloaded
     """
-
-
     # Street network
     G = load_network(graph_filename, folder=root_path)
 
@@ -261,6 +284,12 @@ def get_network_from(region, root_path, graph_name, graph_filename):
 
 
 def save_graph_pic(G):
+    """Save a picture (svg) of graph G.
+    
+    Arguments:
+        G {networkx} -- Working graph
+    """
+
     fig, ax = ox.plot_graph(G,
                             fig_height=15,
                             node_size=0.5,
@@ -270,9 +299,16 @@ def save_graph_pic(G):
                             file_format='svg',
                             filename='ny')
 
-
 def get_distance_dic(root_path, G):
+    """Get distance dictionary (Dijkstra all to all using length). E.g.: [o][d]->distance
 
+    Arguments:
+        root_path {string} -- Try to load path before generating
+        G {networkx} -- 
+    
+    Returns:
+        dict -- Distance dictionary (all to all)
+    """
     distance_dic_m = None
 
     try:
@@ -290,7 +326,6 @@ def get_distance_dic(root_path, G):
     print("\n#Nodes in distance dictionary:", len(distance_dic_m.values()))
 
     return distance_dic_m
-
 
 def get_distance_matrix(G, distance_dic_m):
     """Return distance matrix (n x n). Value is 'None' when path does not exist
@@ -320,8 +355,17 @@ def get_distance_matrix(G, distance_dic_m):
 
     return dist_matrix
 
-
 def get_dt_distance_matrix(path, dist_matrix):
+    """Get dataframe from distance matrix
+    
+    Arguments:
+        path {string} -- File path of distance matrix
+        dist_matrix {list[list[float]]} -- Matrix of distances
+    
+    Returns:
+        [type] -- [description]
+    """
+
 
     dt = None
 

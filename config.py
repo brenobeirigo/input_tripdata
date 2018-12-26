@@ -7,7 +7,7 @@ def get_excerpt_name(start, stop):
     return "tripdata_excerpt_{}_{}".format(start, stop).replace(":", "").replace(" ", "_")
 
 
-root_path = os.getcwd().replace("\\", "/")+"/data_new"
+root_path = os.getcwd().replace("\\", "/")+"/data"
 root_tripdata = root_path + "/tripdata"
 root_dist = root_path + "/dist"
 
