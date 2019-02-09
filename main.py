@@ -41,6 +41,13 @@ def main(calculate_dist=False):
 
     print(dt_distance_matrix.describe())
 
+    # Creating reachability dictionary
+    reachability = gen.get_reachability_dic(config.path_reachability_dic,
+                                            distance_dic,
+                                            steps_sec=30,
+                                            total_sec=600,
+                                            speed_km_h=30)
+
     ################# Processing trip data ###################################
 
     # Try downloading the raw data if not exists
@@ -55,6 +62,7 @@ def main(calculate_dist=False):
                                    config.tripdata["stop"])
     # Adding ids to data
     tp.add_ids(config.path_tripdata, config.path_tripdata_ids, G, distance_dic)
+
 
 
 if __name__ == "__main__":

@@ -4,7 +4,8 @@ import os
 import pandas as pd
 import numpy as np
 import config
-
+import bisect
+from collections import defaultdict
 
 def node_access(G, node, degree=1, direction="backward"):
     """
@@ -136,6 +137,88 @@ def download_network(region, network_type):
 
     return G
 
+def get_reachability_dic(root_path, distance_dic, steps_sec=30, total_sec=600, speed_km_h = 30):
+    """Which nodes are reachable from one another in "steps_sec" seconds?
+    E.g.:
+    Given the following distance dictionary:
+
+    FROM    TO   DIST(s)
+    2       1     35
+    3       1     60
+    4       1     7
+    5       1     20
+
+    If steps_sec = 30, the reachability set for 1 is: reachable[1][30] = set([4, 5]).
+    In other words, node 1 can be reached from nodes 4 and 5 in 30 seconds.
+
+    Hence, for a given OD pair (o, d) and steps_sec = s, if o in reachable[d][s],
+    then d can be reached from o in s seconds.
+
+    Arguments:
+        distance_dic {[dict]} -- Distance dictionary (dic[o][d] = dist(o,d))
+        root_path {str} -- Where to save reachability dictionary
+
+    Keyword Arguments:
+    
+        steps_sec {int} -- d is reachable from o in how many seconds? (default: {30})
+        total_sec {int} -- [description] (default: {3600})
+        speed {int} -- in km/h to convert distances (default: {30} km_h)
+
+    Returns:
+        [dict] -- Reachability structure reachable[d][steps_sec] = set([o_1, o_2, o_3, o_n])
+    """
+
+    reachability_dict = None
+    try:
+        print("Reading reachability dictionary '{}'...".format(root_path))
+        reachability_dict = np.load(root_path).item()
+
+    except:
+
+        reachability_dict = defaultdict(lambda:defaultdict(set))
+        
+        # E.g., [30, 60, 90, ..., 600]
+        max_travel_time_list = [i for i in range(steps_sec, total_sec+steps_sec, steps_sec)]
+        print("Get reachability for nodes in the following max. travel times:\n", max_travel_time_list)
+        
+        for o in distance_dic.keys():
+            for d in distance_dic[o].keys():
+
+                # Dictionary contains only valid distances
+                dist_m = distance_dic[o][d]
+                dist_s = int(3.6 * dist_m / speed_km_h + 0.5)
+
+                # Find the index of which max_duration box dist_s is in
+                step = bisect.bisect_left(max_travel_time_list, dist_s)
+                if step < len(max_travel_time_list):
+                    reachability_dict[d][max_travel_time_list[step]].add(o)
+                    # print("o: {} -> d: {} - dist_km: {} - dist_s: {} - index: {} - reachable in(s): {}".format(o,d, dist_m, dist_s, step, max_travel_time_list[step]))
+        # print(reachability_dict)     
+        np.save(root_path, dict(reachability_dict))
+
+    return reachability_dict
+
+def get_can_reach_set(n, reach_dic, max_trip_duration=150):
+    """Return the set of all nodes whose trip to node n takes
+    less than "max_trip_duration" seconds.
+    
+    Arguments:
+        n {int} -- target node id
+        reach_dic {dict[int][dict[int][set]]} -- Stores the node ids whose distance to n
+        is whitin max. trip duration (e.g., 30, 60, etc.)  
+
+    Keyword Arguments:
+        max_trip_duration {int} -- Max. trip duration in seconds a node can be distant from n (default: {150})
+
+    Returns:    
+        Set -- Set of nodes that can reach n in less than max_trip_duration seconds.
+    """
+
+    can_reach_target = set()
+    for t in reach_dic[n].keys():
+        if t<=max_trip_duration:
+            can_reach_target.update(reach_dic[n][t])
+    return can_reach_target
 
 def get_list_coord(G, o, d):
     """Get the list of intermediate coordinates between
@@ -208,6 +291,66 @@ def get_linestring(G, o, d, **kwargs):
                             "coordinates": coords}}
 
     return geojson
+
+def get_sp_coords(G, o, d):
+    """Return coordinates of the shortest path.
+    E.g.: [[x, y], [z,w]]
+
+    Arguments:
+        G {networkx} -- Graph
+        list_ids {list} -- List of node ids
+
+    Returns:
+        linestring -- Coordinates representing id list
+    """
+
+    linestring = []
+
+    list_ids = get_sp(G, o, d)
+
+    for i in range(0, len(list_ids) - 1):
+        linestring.extend(get_list_coord(G,
+                                        list_ids[i],
+                                        list_ids[i+1]))
+        linestring = linestring[:-1]
+
+    # Add last node (excluded in for loop)
+    linestring.append((G.node[list_ids[-1]]['x'], G.node[list_ids[-1]]['y']))
+
+    # List of points (x y) connection from_id and to_id
+    coords = [[u, v] for u, v in linestring]
+
+    return coords
+
+def get_sp_linestring_durations(G, o, d, speed):
+    """Return coordinates of the shortest path.
+    E.g.: [[x, y], [z,w]]
+
+    Arguments:
+        G {networkx} -- Graph
+        list_ids {list} -- List of node ids
+
+    Returns:
+        linestring -- Coordinates representing id list
+    """
+
+    linestring = []
+
+    list_ids = get_sp(G, o, d)
+
+    for i in range(0, len(list_ids) - 1):
+        linestring.extend(get_list_coord(G,
+                                        list_ids[i],
+                                        list_ids[i+1]))
+        linestring = linestring[:-1]
+
+    # Add last node (excluded in for loop)
+    linestring.append((G.node[list_ids[-1]]['x'], G.node[list_ids[-1]]['y']))
+
+    # List of points (x y) connection from_id and to_id
+    coords = [[u, v] for u, v in linestring]
+
+    return coords
 
 
 def get_sp(G, o, d):
@@ -346,8 +489,8 @@ def get_distance_matrix(G, distance_dic_m):
         for to_node in G.nodes():
 
             try:
-                dist = distance_dic_m[from_node][to_node]
-                to_distance_list.append(dist)
+                dist_km = distance_dic_m[from_node][to_node]
+                to_distance_list.append(dist_km)
             except:
                 to_distance_list.append(None)
 

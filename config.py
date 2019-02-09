@@ -40,6 +40,8 @@ path_dist_matrix = "{}/distance_matrix_m_{}.csv".format(root_dist, graph_name)
 # Distance dictionary (meters)
 path_dist_dic = "{}/distance_dic_m_{}.npy".format(root_dist, graph_name)
 
+# Distance dictionary (meters)
+path_reachability_dic = "{}/reachability_{}.npy".format(root_dist, graph_name)
 
 # Presumably, the last part of the url is the file name
 tripdata_filename = tripdata["url_tripdata"].split("/")[-1]
