@@ -1,12 +1,78 @@
 # Trip data sandbox
 
-## ENVIRONMENT
 
-### Creating and loading environments
-    **EXPORT:** conda env export > environment.yaml
-    **IMPORT:** conda env create -f environment.yaml
+## Installing Gurobi on Anaconda
+
+This project implements an ILP model to determine the smallest set of region centers in a network (according to a maximum distance). Follow the steps to run the model:
+
+1. Download and install Gurobi ([link](http://www.gurobi.com/downloads/download-center));
+2. Request a free academic license ([link](https://user.gurobi.com/download/licenses/free-academic));
+3. Add Gurobi to Anaconda ([link](http://www.gurobi.com/downloads/get-anaconda)).
+
+
+
+## Using GIT
+
+Use this project remote:
+
+    https://github.com/brenobeirigo/input_tripdata.git
+
+In the following section, Git tips from the [Git Cheat Sheet](https://www.git-tower.com/blog/) (git-tower).
+
+
+### Create
+Clone an existing repository
+    
+    git clone <remote>
+
+Create a new local repository
+    
+    git init
+### Update & Publish
+
+List all currently  configured remotes
+    
+    git remote - v
+
+Download changes and directly merge/integrate into HEAD
+    
+    git pull <remote> <branch>
+
+#### Publish local changes on a remote
+    git push <remote> <branch>
+
+## Loading the python environment
+
+Load the python environment in the file `env_slevels.yaml` to install all modules used in this project.
+
+In the following section, tips on manipulating python environments from the [Anaconda Cheat Sheet](https://docs.conda.io/projects/conda/en/4.6.0/_downloads/52a95608c49671267e40c689e0bc00ca/conda-cheatsheet.pdf).
+
+### Using environments
+List all packages and versions installed in active environment
+
+    conda list
+
+Get a list of all my environments, active
+environment is shown with *
+
+    conda env list
+
+Create a new environment named py35, install Python 3.5
+    
+    conda create --name py35 python=3.5 
+
+Create environment from a text file
+
+    conda env create -f environment_name.yaml
+
+Save environment to a text file
+
+    conda env export > environment_name.yaml
 
 ## SERVER
+
+The file `server.py` starts a local server to provide easy access to the trip data.
+
 
 ### Adjusting TCP Settings for Heavy Load on Windows
 

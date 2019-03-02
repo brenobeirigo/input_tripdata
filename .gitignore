@@ -9,3 +9,6 @@ images/
 
 # Gurobi logs
 .log
+
+# IDE
+.vscode/

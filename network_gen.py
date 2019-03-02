@@ -134,8 +134,8 @@ def download_network(region, network_type):
 
     return G
 
-def get_reachability_dic(root_path, distance_dic, steps_sec=30, total_sec=600, speed_km_h = 30):
-    """Which nodes are reachable from one another in "steps_sec" seconds?
+def get_reachability_dic(root_path, distance_dic, step=30, total_range=600, speed_km_h = 30):
+    """Which nodes are reachable from one another in "step" steps?
     E.g.:
     Given the following distance dictionary:
 
@@ -145,52 +145,68 @@ def get_reachability_dic(root_path, distance_dic, steps_sec=30, total_sec=600, s
     4       1     7
     5       1     20
 
-    If steps_sec = 30, the reachability set for 1 is: reachable[1][30] = set([4, 5]).
-    In other words, node 1 can be reached from nodes 4 and 5 in 30 seconds.
+    If step = 30, the reachability set for 1 is: reachable[1][30] = set([4, 5]).
+    In other words, node 1 can be reached from nodes 4 and 5 in less than 30 steps.
 
-    Hence, for a given OD pair (o, d) and steps_sec = s, if o in reachable[d][s],
-    then d can be reached from o in s seconds.
+    Hence, for a given OD pair (o, d) and step = s, if o in reachable[d][s],
+    then d can be reached from o in t steps.
 
     Arguments:
-        distance_dic {[dict]} -- Distance dictionary (dic[o][d] = dist(o,d))
+        distance_dic {dict{float}} -- Distance dictionary (dic[o][d] = dist(o,d))
         root_path {str} -- Where to save reachability dictionary
 
     Keyword Arguments:
     
-        steps_sec {int} -- d is reachable from o in how many seconds? (default: {30})
-        total_sec {int} -- [description] (default: {3600})
-        speed {int} -- in km/h to convert distances (default: {30} km_h)
+        step {int} -- The minimum reachability distance that multiplies
+                      until it reaches the total range.
+        total_range{int} -- Total range used to define concentric
+                            reachability, step from step. Considered a multiple
+                            of step.
+        speed_kh_h {int} -- in km/h to convert distances (default: {30} km_h)
+                            If different of None, 'step' and 'total_range' are considered
+                            in seconds.
 
     Returns:
-        [dict] -- Reachability structure reachable[d][steps_sec] = set([o_1, o_2, o_3, o_n])
-                  IMPORTANT: for the sake of memory optimization, nodes from step x are NOT
-                  included in step x+1.
+        [dict] -- Reachability structure reachable[d][step] = set([o_1, o_2, o_3, o_n])
+                  IMPORTANT: for the sake of memory optimization, nodes from step 'x' are NOT
+                  included in step 'x+1'.
+                  Use 'get_can_reach_set' to derive the overall reachability, across
+                  the full range.
     """
 
     reachability_dict = None
     try:
-        print("Reading reachability dictionary '{}'...".format(root_path))
         reachability_dict = np.load(root_path).item()
+        print("Reading reachability dictionary '{}'...".format(root_path))
 
     except:
 
         reachability_dict = defaultdict(lambda:defaultdict(set))
         
         # E.g., [30, 60, 90, ..., 600]
-        max_travel_time_list = [i for i in range(steps_sec, total_sec+steps_sec, steps_sec)]
-        print("Get reachability for nodes in the following max. travel times:\n", max_travel_time_list)
+        steps_in_range_list = [i for i in range(step, total_range+step, step)]
+        print(("Calculating reachability...\n" +
+            "Steps:{}").format(steps_in_range_list))
         
         for o in distance_dic.keys():
             for d in distance_dic[o].keys():
 
                 # Dictionary contains only valid distances
                 dist_m = distance_dic[o][d]
-                dist_s = int(3.6 * dist_m / speed_km_h + 0.5)
 
+                # So far, we are using distance in meters
+                dist = dist_m
+                
+                # If speed is provided, convert distance to seconds
+                # Steps are assumed to be in seconds too
+                if speed_km_h:
+                    dist_s = int(3.6 * dist_m / speed_km_h + 0.5)
+                    dist = dist_s
+        
                 # Find the index of which max_duration box dist_s is in
-                step = bisect.bisect_left(max_travel_time_list, dist_s)
-                if step < len(max_travel_time_list):
-                    reachability_dict[d][max_travel_time_list[step]].add(o)
+                step_id = bisect.bisect_left(steps_in_range_list, dist)
+                if step_id < len(steps_in_range_list):
+                    reachability_dict[d][steps_in_range_list[step_id]].add(o)
                     # print("o: {} -> d: {} - dist_km: {} - dist_s: {} - index: {} - reachable in(s): {}".format(o,d, dist_m, dist_s, step, max_travel_time_list[step]))
         # print(reachability_dict)
         np.save(root_path, dict(reachability_dict))
@@ -461,10 +477,9 @@ def get_distance_dic(root_path, G):
         dict -- Distance dictionary (all to all)
     """
     distance_dic_m = None
-
     try:
-        print("Reading '{}'...".format(root_path))
         distance_dic_m = np.load(root_path).item()
+        print("\nReading distance data...\nSource: '{}'.".format(root_path))
 
     except:
         print("Calculating shortest paths...")
@@ -535,8 +550,8 @@ def get_dt_distance_matrix(path, dist_matrix):
 
     return dt
 
-def get_region_centers(path_region_centers, reachability_dic, steps_sec = 30,  total_sec=600, speed_km_h = 30, root_path=None):
-    # Find minimum number of region centers, every 'steps_sec'
+def get_region_centers(path_region_centers, reachability_dic, step = 30,  total_range=600, speed_km_h = 30, root_path=None):
+    # Find minimum number of region centers, every 'step'
     # ILP from:
     #   Wallar, A., van der Zee, M., Alonso-Mora, J., & Rus, D. (2018).
     #   Vehicle Rebalancing for Mobility-on-Demand Systems with Ride-Sharing.
@@ -552,10 +567,11 @@ def get_region_centers(path_region_centers, reachability_dic, steps_sec = 30,  t
 
     centers_dic = None
     try:
-        print("Reading region center dictionary '{}'...".format(path_region_centers))
         centers_dic = np.load(path_region_centers).item()
+        print("\nReading region center dictionary...\nSource: '{}'.".format(path_region_centers))
 
     except:
+        print("\nCalculating region center dictionary...\nTarget path: '{}'.".format(path_region_centers))
         # If not None, defines the location of the steps of a solution
         centers_gurobi_log = None
         centers_sub_sols = None
@@ -571,7 +587,7 @@ def get_region_centers(path_region_centers, reachability_dic, steps_sec = 30,  t
                 os.makedirs(centers_sub_sols)
 
         centers_dic = dict()
-        for max_delay in range(steps_sec, total_sec+steps_sec, steps_sec):
+        for max_delay in range(step, total_range+step, step):
 
             # Name of intermediate region centers file for 'max_delay'
             file_name = "{}/{}.npy".format(centers_sub_sols,max_delay)

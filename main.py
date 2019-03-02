@@ -8,7 +8,14 @@ import config
 
 
 def main(calculate_dist=False):
+    print("############################### TRIP DATA SANDBOX ###############################")
+    print("Creating trip data for '{}'.(from {} to {}).".format(
+        config.tripdata["region"],
+        config.tripdata["start"],
+        config.tripdata["stop"]))
+    
 
+    # Create all folders where data will be saved
     if not os.path.exists(config.root_path):
         os.makedirs(config.root_path)
 
@@ -17,11 +24,17 @@ def main(calculate_dist=False):
 
     if not os.path.exists(config.root_tripdata):
         os.makedirs(config.root_tripdata)
+    
+    if not os.path.exists(config.root_reachability):
+        os.makedirs(config.root_reachability)
 
-    print("\nFolders: {}\n{}\n{}.".format(
-        config.root_path,
+    print(("\n>>>>> Target folders:\n" +
+          "\n - Distance matrix (csv) and dictionary (npy): {}" +
+          "\n -   Data excerpt from NYC taxi dataset (csv): {}" +
+          "\n -  Reachability (npy) & region centers (npy): {}.\n").format(
         config.root_dist,
-        config.root_tripdata))
+        config.root_tripdata,
+        config.root_reachability))
 
     # Get network graph and save
     G = gen.get_network_from(config.tripdata["region"],
@@ -30,34 +43,35 @@ def main(calculate_dist=False):
                              config.graph_file_name)
     gen.save_graph_pic(G)
 
-
+    print( "\nGetting distance data...\n")
     # Creating distance dictionary [o][d] -> distance
     distance_dic = gen.get_distance_dic(config.path_dist_dic, G)
 
     # Creating distance matrix (n X n) from dictionary
     distance_matrix = gen.get_distance_matrix(G, distance_dic)
+    
     # Distance matrix as dataframe
     dt_distance_matrix = gen.get_dt_distance_matrix(
-        config.path_dist_matrix, distance_matrix)
+        config.path_dist_matrix,
+        distance_matrix)
 
     print(dt_distance_matrix.describe())
 
     # Creating reachability dictionary
     reachability = gen.get_reachability_dic(config.path_reachability_dic,
                                             distance_dic,
-                                            steps_sec=30,
-                                            total_sec=600,
-                                            speed_km_h=30)
+                                            step=config.step,
+                                            total_range=config.total_range,
+                                            speed_km_h=config.speed_km_h)
 
     # Creating region centers for all max. travel durations
     # in reachability dictionary
     region_centers = gen.get_region_centers(config.path_region_centers,
                                             reachability,
                                             root_path= config.root_reachability,
-                                            steps_sec=30,
-                                            total_sec=600,
-                                            speed_km_h=30)
-
+                                            step=config.step,
+                                            total_range=config.total_range,
+                                            speed_km_h=config.speed_km_h)
 
     ################# Processing trip data ###################################
     # Taxi data from NY city

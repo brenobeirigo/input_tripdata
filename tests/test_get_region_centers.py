@@ -33,13 +33,13 @@ speed_km_h = 30
 reachability_dic = nw.get_reachability_dic(
     config.path_reachability_dic,
     distance_dic,
-    steps_sec=steps_sec,
-    total_sec=total_sec,
+    step=steps_sec,
+    total_range=total_sec,
     speed_km_h=speed_km_h)
 
 region_centers = nw.get_region_centers(config.path_region_centers,
                                         reachability_dic,
                                         root_path = config.root_reachability,
-                                        steps_sec=30,
-                                        total_sec=600,
+                                        step=30,
+                                        total_range=600,
                                         speed_km_h=30)

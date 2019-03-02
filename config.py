@@ -10,21 +10,28 @@ def get_excerpt_name(start, stop):
 root_path = os.getcwd().replace("\\", "/")+"/data"
 root_tripdata = root_path + "/tripdata"
 root_dist = root_path + "/dist"
-root_reachability = root_path + "/reachability"
+
+###### Reachability
+# Reachability layers (e.g., reachable in 30, 60, ..., total_range steps)
+step = 30 
+total_range=600
+# If defined, step and total_range are assumed to be seconds
+speed_km_h = 30
+root_reachability = root_path + "/reachability_{}_{}{}".format(step, total_range, ("_kmh{}".format(speed_km_h) if speed_km_h else ""))
 
 # Input data
 tripdata = None
 with open("config/config_tripdata.json") as js:
     tripdata = json.load(js)
-    print("Trip data:")
-    pprint(tripdata)
+    #print("Trip data:")
+    #pprint(tripdata)
 
 # Config
 db_connection = None
 with open('config/db_config.json') as js:
     db_connection = json.load(js)
-    print("\nDB connection data:")
-    pprint(db_connection)
+    #print("\nDB connection data:")
+    #pprint(db_connection)
 
 # Path of trip data with ids
 path_tripdata_ids = "{}/{}_ids.csv".format(root_tripdata,
@@ -59,3 +66,5 @@ path_tripdata = "{}/{}.csv".format(root_tripdata,
 # Create and store graph name
 graph_name = tripdata["region"].lower().replace(" ", "-").replace(",", "")
 graph_file_name = "{}.graphml".format(graph_name)
+
+
