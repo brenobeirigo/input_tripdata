@@ -6,3 +6,6 @@ __pycache__/
 
 # Images
 images/
+
+# Gurobi logs
+.log

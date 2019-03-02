@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import config
 import bisect
+import milp.ilp_reachability as ilp
 from collections import defaultdict
 
 def node_access(G, node, degree=1, direction="backward"):
@@ -44,8 +45,8 @@ def node_access(G, node, degree=1, direction="backward"):
 
 
 def is_reachable(G, node, degree):
-    """Check if node can be accessed by a chain trail (backwards and frontward)
-    of "degree" nodes.
+    """Check if node can be accessed across a chain
+    of "degree" nodes (backwards and frontward).
 
     This guarantees the node is not isolated since it is reachable and
     can reach others.
@@ -58,8 +59,6 @@ def is_reachable(G, node, degree):
     Returns:
         boolean -- True, if node can be reached and reach others
     """
-
-
     pre = list(G.predecessors(node))
     suc = list(G.successors(node))
     neighbors = set(pre + suc)
@@ -86,8 +85,6 @@ dic_old_new = dict()
 i = -1
 
 # Relabel
-
-
 def mapping(x):
     global i
     i = i+1
@@ -166,6 +163,8 @@ def get_reachability_dic(root_path, distance_dic, steps_sec=30, total_sec=600, s
 
     Returns:
         [dict] -- Reachability structure reachable[d][steps_sec] = set([o_1, o_2, o_3, o_n])
+                  IMPORTANT: for the sake of memory optimization, nodes from step x are NOT
+                  included in step x+1.
     """
 
     reachability_dict = None
@@ -193,7 +192,7 @@ def get_reachability_dic(root_path, distance_dic, steps_sec=30, total_sec=600, s
                 if step < len(max_travel_time_list):
                     reachability_dict[d][max_travel_time_list[step]].add(o)
                     # print("o: {} -> d: {} - dist_km: {} - dist_s: {} - index: {} - reachable in(s): {}".format(o,d, dist_m, dist_s, step, max_travel_time_list[step]))
-        # print(reachability_dict)     
+        # print(reachability_dict)
         np.save(root_path, dict(reachability_dict))
 
     return reachability_dict
@@ -314,7 +313,7 @@ def get_sp_coords(G, o, d):
                                         list_ids[i+1]))
         linestring = linestring[:-1]
 
-    # Add last node (excluded in for loop)
+    # Add last node coordinate (excluded in for loop)
     linestring.append((G.node[list_ids[-1]]['x'], G.node[list_ids[-1]]['y']))
 
     # List of points (x y) connection from_id and to_id
@@ -354,10 +353,20 @@ def get_sp_linestring_durations(G, o, d, speed):
 
 
 def get_sp(G, o, d):
+    """Return shortest path between node ids o and d
+    
+    Arguments:
+        G {networkx} -- [description]
+        o {int} -- Origin node id
+        d {int} -- Destination node id
+    
+    Returns:
+        list -- List of nodes between o and d (included)
+    """
     return nx.shortest_path(G, source=o, target=d)
 
 def get_network_from(region, root_path, graph_name, graph_filename):
-    """Download network from region. If exists, load.
+    """Download network from region. If exists (check filename), try loading.
     
     Arguments:
         region {string} -- Location. E.g., "Manhattan Island, New York City, New York, USA"
@@ -372,7 +381,7 @@ def get_network_from(region, root_path, graph_name, graph_filename):
     G = load_network(graph_filename, folder=root_path)
 
     if G is None:
-    # Try loading region
+    # Try to download
         try:
             G = download_network(region, "drive")
 
@@ -424,7 +433,6 @@ def get_network_from(region, root_path, graph_name, graph_filename):
         len(G.edges())))
     
     return G
-
 
 def save_graph_pic(G):
     """Save a picture (svg) of graph G.
@@ -506,9 +514,8 @@ def get_dt_distance_matrix(path, dist_matrix):
         dist_matrix {list[list[float]]} -- Matrix of distances
     
     Returns:
-        [type] -- [description]
+        pandas dataframe -- Distance matrix
     """
-
 
     dt = None
 
@@ -520,7 +527,74 @@ def get_dt_distance_matrix(path, dist_matrix):
     except Exception as e:
         print(e)
         dt = pd.DataFrame(dist_matrix)
-        dt.to_csv(path, index=False,
-                  header=False, float_format="%.6f", na_rep="INF")
+        dt.to_csv(path,
+                index=False,
+                header=False,
+                float_format="%.6f",
+                na_rep="INF")
 
     return dt
+
+def get_region_centers(path_region_centers, reachability_dic, steps_sec = 30,  total_sec=600, speed_km_h = 30, root_path=None):
+    # Find minimum number of region centers, every 'steps_sec'
+    # ILP from:
+    #   Wallar, A., van der Zee, M., Alonso-Mora, J., & Rus, D. (2018).
+    #   Vehicle Rebalancing for Mobility-on-Demand Systems with Ride-Sharing.
+    #   Iros, 4539–4546.
+    #
+    # Why using regions?
+    # The region centers are computed a priori and are used to aggregate 
+    # requests together so the rate of requests for each region can be 
+    # computed. These region centers are also used for rebalancing as 
+    # they are the locations that vehicles are proactively sent to.
+
+    # Dictionary relating max_delay to region centers
+
+    centers_dic = None
+    try:
+        print("Reading region center dictionary '{}'...".format(path_region_centers))
+        centers_dic = np.load(path_region_centers).item()
+
+    except:
+        # If not None, defines the location of the steps of a solution
+        centers_gurobi_log = None
+        centers_sub_sols = None
+        if root_path:
+            # Create folders to save intermediate work and log
+            centers_gurobi_log = "{}/region_centers/gurobi_log".format(root_path)
+            centers_sub_sols = "{}/region_centers/sub_sols".format(root_path)
+
+            if not os.path.exists(centers_gurobi_log):
+                os.makedirs(centers_gurobi_log)
+
+            if not os.path.exists(centers_sub_sols):
+                os.makedirs(centers_sub_sols)
+
+        centers_dic = dict()
+        for max_delay in range(steps_sec, total_sec+steps_sec, steps_sec):
+
+            # Name of intermediate region centers file for 'max_delay'
+            file_name = "{}/{}.npy".format(centers_sub_sols,max_delay)
+
+            if root_path and os.path.isfile(file_name):
+                # Load max delay in centers_dic
+                centers_dic[max_delay] = np.load(file_name).item()
+                print(file_name, "already calculated.")
+                continue
+            
+            # Find the list of centers for max_delay
+            centers = ilp.ilp_node_reachability(
+                reachability_dic,
+                max_delay = max_delay,
+                log_path = centers_gurobi_log)
+
+            centers_dic[max_delay] = centers
+            print("Max. delay: {} = # Nodes: {}".format(max_delay, len(centers)))
+            
+            # Save intermediate steps (region centers of 'max_delay')
+            if root_path:
+                np.save(file_name, centers)
+
+        np.save(path_region_centers, centers_dic)
+
+        return centers_dic

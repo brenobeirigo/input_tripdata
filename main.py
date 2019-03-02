@@ -34,8 +34,9 @@ def main(calculate_dist=False):
     # Creating distance dictionary [o][d] -> distance
     distance_dic = gen.get_distance_dic(config.path_dist_dic, G)
 
-    # Creating distance matrix (n X n)
+    # Creating distance matrix (n X n) from dictionary
     distance_matrix = gen.get_distance_matrix(G, distance_dic)
+    # Distance matrix as dataframe
     dt_distance_matrix = gen.get_dt_distance_matrix(
         config.path_dist_matrix, distance_matrix)
 
@@ -48,9 +49,20 @@ def main(calculate_dist=False):
                                             total_sec=600,
                                             speed_km_h=30)
 
-    ################# Processing trip data ###################################
+    # Creating region centers for all max. travel durations
+    # in reachability dictionary
+    region_centers = gen.get_region_centers(config.path_region_centers,
+                                            reachability,
+                                            root_path= config.root_reachability,
+                                            steps_sec=30,
+                                            total_sec=600,
+                                            speed_km_h=30)
 
-    # Try downloading the raw data if not exists
+
+    ################# Processing trip data ###################################
+    # Taxi data from NY city
+
+    # Try downloading the raw data if not exists (NY)
     tp.download_file(config.tripdata["url_tripdata"],
                      config.root_tripdata,
                      config.tripdata_filename)
@@ -60,10 +72,9 @@ def main(calculate_dist=False):
                                    config.path_tripdata,
                                    config.tripdata["start"],
                                    config.tripdata["stop"])
-    # Adding ids to data
+
+    # Adding street network node ids (from G) to tripdata
     tp.add_ids(config.path_tripdata, config.path_tripdata_ids, G, distance_dic)
-
-
 
 if __name__ == "__main__":
 

@@ -26,7 +26,32 @@ def download_file(url, root_path, file_name):
         open(output_file, 'wb').write(r.content)
 
 
-def get_trip_data(tripdata_path, output_path, start, stop):
+def get_trip_data(tripdata_path, output_path, start=None, stop=None):
+    """
+    Read raw tripdata csv and filter unnecessary info.
+    
+        1 - Check if output path exists
+        2 - If output path does not exist
+            2.1 - Select columns ("pickup_datetime",
+                                "passenger_count",
+                                "pickup_longitude",
+                                "pickup_latitude",
+                                "dropoff_longitude",
+                                "dropoff_latitude")
+            2.2 - If start and stop are not None, get excerpt
+        3 - Save clean tripdata in a csv
+        3 - Return dataframe
+    
+    Arguments:
+        tripdata_path {string} -- Raw trip data csv path
+        output_path {string} -- Cleaned trip data csv path
+        start {string} -- Datetime where tripdata should start (e.g., 2011-02-01 12:23:00)
+        stop {string} -- Datetime where tripdata should end (e.g., 2011-02-01 14:00:00)
+    
+    Returns:
+        Dataframe -- Cleaned tripdata dataframe
+    """
+
 
     print("files:", output_path, tripdata_path)
 
@@ -155,6 +180,15 @@ def add_ids(path_tripdata,
             path_tripdata_ids,
             G,
             distance_dic_m):
+    """[summary]
+    
+    Arguments:
+        path_tripdata {[type]} -- [description]
+        path_tripdata_ids {[type]} -- [description]
+        G {[type]} -- [description]
+        distance_dic_m {[type]} -- [description]
+    """
+
 
     dt = None
 

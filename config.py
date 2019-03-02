@@ -10,6 +10,7 @@ def get_excerpt_name(start, stop):
 root_path = os.getcwd().replace("\\", "/")+"/data"
 root_tripdata = root_path + "/tripdata"
 root_dist = root_path + "/dist"
+root_reachability = root_path + "/reachability"
 
 # Input data
 tripdata = None
@@ -40,8 +41,11 @@ path_dist_matrix = "{}/distance_matrix_m_{}.csv".format(root_dist, graph_name)
 # Distance dictionary (meters)
 path_dist_dic = "{}/distance_dic_m_{}.npy".format(root_dist, graph_name)
 
-# Distance dictionary (meters)
-path_reachability_dic = "{}/reachability_{}.npy".format(root_dist, graph_name)
+# Reachability dictionary {o =  {max_dist =[d1, d2, d3]}
+path_reachability_dic = "{}/reachability_{}.npy".format(root_reachability, graph_name)
+
+# Region centers dictionary {max_dist = [c1, c2, c3, c4, c5]}
+path_region_centers = "{}/region_centers_{}.npy".format(root_reachability, graph_name)
 
 # Presumably, the last part of the url is the file name
 tripdata_filename = tripdata["url_tripdata"].split("/")[-1]
