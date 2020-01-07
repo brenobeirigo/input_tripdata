@@ -5,10 +5,14 @@ data/
 __pycache__/
 
 # Images
-images/
+*.png
+*.jpg
 
 # Gurobi logs
-.log
+*.log
+
+# Gurobi models
+*.lp
 
 # IDE
 .vscode/

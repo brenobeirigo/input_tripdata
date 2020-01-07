@@ -1,14 +1,62 @@
 # Trip data sandbox
 
+Generates a complete trip data sandbox to study pickup and delivery problems.
+
+
+Change the file `config/config_tripdata.json` to choose the region as well as the trip data settings.
+
+The following snippet, for example, chooses the New York street network, and defines the range of request entries that will be pulled from the NYC-TLC trip dataset:
+
+    {
+    "region": "Manhattan Island, New York City, New York, USA",
+    "url_tripdata": "https://s3.amazonaws.com/nyc-tlc/trip+data/yellow_tripdata_2011-02.csv",
+    "start": "2011-2-1",
+    "stop": "2011-2-28"
+    }
+
+## Mirroring NYC demand to other regions
+
+To copy New York temporal demand distribution (e.g., rush hours, idle times, etc.), the `config_tripdata.json` file have to determine: 
+1. The region the demand will be copied to, and
+2. The trip data generation settings
+
+The Following snippet shows an example where New York demand is copied to Amsterdam, the Netherlands:
+
+    {
+        "region": "Amsterdam, North Holland, Netherlands",
+        "data_gen": {
+            "source": "D:\\bb\\sq\\data\\manhattan-island-new-york-city-new-york-usa\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv",
+            "funcs": ["random_clone"],
+            "max_passenger_count": 4,
+            "url_tripdata": "https://s3.amazonaws.com/nyc-tlc/trip+data/yellow_tripdata_2011-02.csv",
+            "start": "2011-02-01 00:00:00",
+            "stop": "2011-02-02 00:00:00" 
+        }
+    }
+
+To enter a valid `region`, search it first on [Open Street Map](https://www.openstreetmap.org). For example, the following regions are valid:
+
+* Amsterdam  - `"Amsterdam, North Holland, Netherlands"` (11,372 nodes and 25,759 edges)
+* Delft - `"Delft, South Holland, Netherlands"` (2,104 nodes and 4,866 edges)
+
+* Delft - `"Delft University of Technology, Netherlands"` (11,372 nodes and 25,759 edges)
 
 ## Installing Gurobi on Anaconda
 
 This project implements an ILP model to determine the smallest set of region centers in a network (according to a maximum distance). Follow the steps to run the model:
 
 1. Download and install Gurobi ([link](http://www.gurobi.com/downloads/download-center));
-2. Request a free academic license ([link](https://user.gurobi.com/download/licenses/free-academic));
+2. Request a free academic license and activate it ([link](https://user.gurobi.com/download/licenses/free-academic));
 3. Add Gurobi to Anaconda ([link](http://www.gurobi.com/downloads/get-anaconda)).
 
+### Common issues
+
+#### License & Gurobi version mismatch
+ Occurs when the Python Gurobi package is newer than the Gurobi installation. The license file matches the installation, raising the following issue
+ 
+    Error code 10009: Version number is 8.1, license is for version 7.0
+ 
+ To solve it, install a new Gurobi version or downgrade python version.
 
 
 ## Using GIT

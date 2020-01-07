@@ -1,0 +1,11 @@
+{
+  "region": "Manhattan Island, New York City, New York, USA",
+  "data_gen": {
+    "source": "D:\\bb\\sq\\data\\manhattan-island-new-york-city-new-york-usa\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv",
+    "funcs": ["random_clone"],
+    "max_passenger_count": 4,
+    "url_tripdata": "https://s3.amazonaws.com/nyc-tlc/trip+data/yellow_tripdata_2011-02.csv",
+    "start": "2011-02-01 00:00:00",
+    "stop": "2011-02-02 00:00:00" 
+  }
+}
