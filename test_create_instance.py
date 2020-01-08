@@ -55,7 +55,7 @@ if __name__ == "__main__":
         # }
     }
 
-    tripdata_csv_path = f"{config.root_tripdata}/random_clone_tripdata_excerpt_2011-02-01_000000_2011-02-02_000000_ids.csv"
+    tripdata_csv_path = f"{config.root_tripdata}/tripdata_excerpt_2011-2-1_2011-2-28_ids.csv"
     
 
     gen.create_instances_exact_sol(
