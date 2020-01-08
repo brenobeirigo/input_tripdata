@@ -1,4 +1,5 @@
 import random
+random.seed(1)
 import pprint
 from datetime import datetime, date, time, timedelta
 import collections
