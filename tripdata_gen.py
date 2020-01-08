@@ -1,3 +1,5 @@
+from model.Request import Request
+from pprint import pprint
 import pandas as pd
 import requests
 import os
@@ -7,14 +9,14 @@ from functools import partial
 import network_gen as nw
 from datetime import datetime, timedelta
 import random
-from pprint import pprint
-from model.Request import Request
+random.seed(1)
 
 # Stores in key = 'name of experiment' the generator used to
 # read trip data in file.
 request_base = dict()
 
-def download_file(url, root_path, file_name):
+
+def download_file(url, data_path, file_name):
     """Download online file and save it.
 
     Arguments:
@@ -22,7 +24,7 @@ def download_file(url, root_path, file_name):
         output_file {String} -- Target path
     """
 
-    output_file = "{}/{}".format(root_path, file_name)
+    output_file = "{}/{}".format(data_path, file_name)
 
     print("Loading  '{}'".format(output_file))
 
@@ -31,6 +33,7 @@ def download_file(url, root_path, file_name):
         print("Downloading {}".format(url))
         r = requests.get(url, allow_redirects=True)
         open(output_file, 'wb').write(r.content)
+
 
 def get_trip_data(tripdata_path, output_path, start=None, stop=None):
     """
@@ -47,7 +50,7 @@ def get_trip_data(tripdata_path, output_path, start=None, stop=None):
             2.2 - If start and stop are not None, get excerpt
         3 - Save clean tripdata in a csv
         3 - Return dataframe
-    
+
     Arguments:
         tripdata_path {string} -- Raw trip data csv path
         output_path {string} -- Cleaned trip data csv path
@@ -55,11 +58,10 @@ def get_trip_data(tripdata_path, output_path, start=None, stop=None):
             (e.g., 2011-02-01 12:23:00)
         stop {string} -- Datetime where tripdata should end
             (e.g., 2011-02-01 14:00:00)
-    
+
     Returns:
         Dataframe -- Cleaned tripdata dataframe
     """
-
 
     print("files:", output_path, tripdata_path)
 
@@ -95,7 +97,6 @@ def get_trip_data(tripdata_path, output_path, start=None, stop=None):
 
         tripdata_dt_excerpt = None
 
-        
         # Get excerpt
         if start and stop:
             tw_filter = (
@@ -117,6 +118,7 @@ def get_trip_data(tripdata_path, output_path, start=None, stop=None):
 
     return tripdata_dt_excerpt
 
+
 def get_ids(
         G,
         pk_lat, pk_lon,
@@ -135,7 +137,7 @@ def get_ids(
 
         #print("Nearest:",n_pk, n_dp)
 
-        # If nearest node is "max_dist" meters far from point, request 
+        # If nearest node is "max_dist" meters far from point, request
         # is discarded
         if n_pk[1] > max_dist or n_dp[1] > max_dist:
             return [None, None]
@@ -155,17 +157,18 @@ def get_ids(
     except:
         return [None, None]
 
+
 def add_ids_chunk(G, distance_dic_m, info):
     """Receive a dataframe chunk with tripdata and try adding node ids
     to the pickup and delivery points.
 
-    
+
     Arguments:
         G {networkx} -- Street network to performe coordinate/node match
         distance_dic_m {dict{dict(float)}} -- Shortest distances between
             ODs in G (usage: distance_dic_m[o][d] = dist).
         info {dataframe} -- Unmatched tripdata
-    
+
     Returns:
         dataframe -- Trip data with pickup and delivery node ids from
             graph G.
@@ -182,13 +185,13 @@ def add_ids_chunk(G, distance_dic_m, info):
                 row['dropoff_latitude'],
                 row['dropoff_longitude'],
                 distance_dic_m
-                )
-            ),
+            )
+        ),
         axis=1
-        )
+    )
 
     original_chunk_size = len(info)
-    
+
     # Remove trip data outside street network in G
     info.dropna(inplace=True)
 
@@ -211,6 +214,7 @@ def add_ids_chunk(G, distance_dic_m, info):
 
     return info
 
+
 def add_ids(path_tripdata, path_tripdata_ids, G, distance_dic_m):
     """Read large dataframe in chunks of trip data and associate
     node ids from graph G to pickup and delivery coordinates
@@ -218,7 +222,7 @@ def add_ids(path_tripdata, path_tripdata_ids, G, distance_dic_m):
 
     Entries whose coordinates are not matched to any point in G
     are discarded, since their occur outside G boundaries.
-    
+
     Arguments:
         path_tripdata {str} -- File path of the tripdata.
         path_tripdata_ids {str} -- Target file path of tripdata with
@@ -232,7 +236,7 @@ def add_ids(path_tripdata, path_tripdata_ids, G, distance_dic_m):
 
     # if file does not exist write header
     if os.path.isfile(path_tripdata_ids):
-    
+
         # Load tripdata
         dt = pd.read_csv(
             path_tripdata_ids,
@@ -279,7 +283,7 @@ def add_ids(path_tripdata, path_tripdata_ids, G, distance_dic_m):
         # for parallel processing
         next_batch = next(gen_chunks)
         list_parallel.append(next_batch)
-        
+
         # If first batch was read successfully, continue reading
         # following batches
         while next_batch is not None:
@@ -291,11 +295,11 @@ def add_ids(path_tripdata, path_tripdata_ids, G, distance_dic_m):
                 next_batch = None
 
             # The pool of processes starts if:
-            #  - The number of dataframe chunks is equal to the 
+            #  - The number of dataframe chunks is equal to the
             #    max number of multiprocesses;
             #  - The end of the dataframe was reached (no next batch).
             if len(list_parallel) == n_mp or next_batch is None:
-                
+
                 # Update progress counters
                 count = count + len(list_parallel)
                 count_lines = count_lines + sum(map(len, list_parallel))
@@ -312,7 +316,7 @@ def add_ids(path_tripdata, path_tripdata_ids, G, distance_dic_m):
                         info_ids.to_csv(path_tripdata_ids,
                                         index=False)
 
-                    # Since file exists, append without writing 
+                    # Since file exists, append without writing
                     # the header
                     else:
                         info_ids.to_csv(path_tripdata_ids,
@@ -348,15 +352,16 @@ def add_ids(path_tripdata, path_tripdata_ids, G, distance_dic_m):
     print(dt.head())
     print(dt.describe())
 
+
 def get_random_request_series(series, od, max_passenger_count):
     """Create a series for the request data that will be integrated
     in the OD dataframe.
-    
+
     Arguments:
         series {[type]} -- [description]
         od {[type]} -- [description]
         max_passenger_count {[type]} -- [description]
-    
+
     Returns:
         [type] -- [description]
     """
@@ -366,22 +371,24 @@ def get_random_request_series(series, od, max_passenger_count):
     data.update(od)
     return pd.Series(data)
 
+
 def gen_random_vehicle_origin(G):
 
     n_nodes = nw.get_number_of_nodes(G)
 
     return random.randint(0, n_nodes-1)
 
+
 def gen_random_request_od(
         G,
         min_dist=100,
         max_dist=1000000,
-        distance_dic = None):
+        distance_dic=None):
     """Generate a single request by choosing random ODs from
     the street network G.
-    
+
     The distance between ODs is in the range [min_dist, max_dist]
-    
+
     Arguments:
         min_dist {float} -- Minimum distance between request's OD
             (default = meters)
@@ -390,7 +397,7 @@ def gen_random_request_od(
         G {networkx} -- Graph to get node coordinates.
         distance_dic {dict{int:dict{int:float}}} -- Shortest distances
             between ODs in G (usage: distance_dic_m[o][d] = dist).
-    
+
     Returns:
         dict -- Random request dictionary. Details:
         'pickup_longitude', 'pickup_latitude', 'dropoff_longitude',
@@ -398,16 +405,17 @@ def gen_random_request_od(
     """
 
     n_nodes = nw.get_number_of_nodes(G)
-    
+
     while True:
         # Find random origin and destination
         o = random.randint(0, n_nodes-1)
         d = random.randint(0, n_nodes-1)
-        dist = (distance_dic[o][d] if distance_dic else nw.get_distance(G, o, d))
+        dist = (distance_dic[o][d]
+                if distance_dic else nw.get_distance(G, o, d))
         # Stop searching if adequate destination is found
         if o != d \
-        and dist >= min_dist \
-        and  dist <= max_dist:
+                and dist >= min_dist \
+                and dist <= max_dist:
             break
 
     x_from = G.node[o]["x"]
@@ -415,28 +423,29 @@ def gen_random_request_od(
     x_to = G.node[d]["x"]
     y_to = G.node[d]["y"]
 
-    req = { 'pickup_longitude': x_from,
-            'pickup_latitude': y_from,
-            'dropoff_longitude': x_to,
-            'dropoff_latitude': y_to,
-            'pk_id': o,
-            'dp_id': d}
-    
+    req = {'pickup_longitude': x_from,
+           'pickup_latitude': y_from,
+           'dropoff_longitude': x_to,
+           'dropoff_latitude': y_to,
+           'pk_id': o,
+           'dp_id': d}
+
     return req
+
 
 def get_next_batch(
         experiment_name,
-        chunk_size = 2000,
-        batch_size = 30,
+        chunk_size=2000,
+        batch_size=30,
         tripdata_csv_path=None,
         start_timestamp=None,
         end_timestamp=None,
-        classes = None,
-        freq = None):
+        classes=None,
+        freq=None):
     """
     Iteratevely returns trip data within sequential time intervals 
     for each experiment.
-    
+
     Each experiment is associated to a dictionary entry 
     containing a generator that reads trip data chunks from 
     a csv iteratively.
@@ -445,11 +454,11 @@ def get_next_batch(
     generator 
      - CSV reader
      - First tim of size "batch_size"
-    
+
     Arguments:
         experiment_name {[type]} -- Name experiment calling 
         the batch of requests.
-    
+
     Keyword Arguments:
         chunk_size {int} -- N. of lines read from dataframe 
                             each time (default: {2000})
@@ -460,7 +469,7 @@ def get_next_batch(
                                 (e.g., 2011-02-01 00:00:00) (default: {None})
         end_timestamp {str} -- Latest time of tripdata 
                                 (e.g., 2011-02-10 00:00:00) (default: {None})
-    
+
     Returns:
         dataframe -- trip data slice corresponding to the sequence 
         in current time interval
@@ -474,7 +483,7 @@ def get_next_batch(
     if experiment_name not in request_base:
 
         print(("\nActivating tripdata generator"
-            " for experiment '{}'...").format(experiment_name))
+               " for experiment '{}'...").format(experiment_name))
 
         # Generator of data chunks from csv file
         gen_chunks = pd.read_csv(
@@ -520,16 +529,16 @@ def get_next_batch(
             if not first_batch[start_timestamp:].empty:
                 # The first batch goes to the residual request
                 trips['residual_requests'] = first_batch
-                break 
+                break
     else:
         # The experiment has already been initiated.
         # Load previous data.
         trips = request_base[experiment_name]
-    
+
     # If last possible time was reached, stop returning data
     if trips['current_time'] >= trips['final_time']:
         return None
-    
+
     batch = trips['residual_requests']
     left_tw = trips['current_time']
     right_tw = left_tw + trips['batch_size']
@@ -537,20 +546,20 @@ def get_next_batch(
     right_tw = min(right_tw, trips['final_time'])
 
     for next_batch in trips['generator']:
-        
+
         batch = batch.append(next_batch)
 
         if not batch[right_tw:].empty:
             break
-        
+
         #print('Size batch after:', len(batch))
-        
+
     # Stores requests read (due to the chunk size) but not returned
     trips['residual_requests'] = pd.DataFrame(batch[right_tw:])
 
     # Cut dataframe until time "right_tw" (not included)
     batch = batch[: right_tw - timedelta(seconds=1)]
-    
+
     # Update current time
     trips['current_time'] = right_tw
 
@@ -559,8 +568,8 @@ def get_next_batch(
     if trips['service_classes']:
         service_class_distribution = random.choices(
             trips['service_classes'],
-            weights = trips['class_frequencies'],
-            k = len(batch)
+            weights=trips['class_frequencies'],
+            k=len(batch)
         )
 
         batch['service_class'] = pd.Series(
@@ -569,18 +578,54 @@ def get_next_batch(
         )
 
     return batch
+
+
+def random_tw(min_date, max_date, lenght_sec):
+    minutes = max_date - min_date
+    rounds = int(minutes.total_seconds()/lenght_sec)
+    random_round = random.randint(0, rounds)
+    earliest = min_date + \
+        timedelta(seconds=random.randint(0, rounds)*lenght_sec)
+    latest = earliest + timedelta(seconds=lenght_sec)
+    return earliest, latest
+
+
+def get_trips(n, df, min_date, max_date, tw_lenght_sec, first_date=None):
+    df_cut = pd.DataFrame()
+    while(len(df_cut) < n):
+        e, l = random_tw(min_date, max_date, tw_lenght_sec)
+        low = df.index >= e
+        high = df.index < l
+        df_cut = df[low & high]
+
+        if first_date:
+            diff = e - first_date
+            df_cut.index = df_cut.index - diff
+    df_sample = df_cut.sample(n=n, replace=False)
+    return df_sample.sort_index()
+
+
 def create_instances_exact_sol(
         area,
         demand_size_list,
         user_base_segmentation_dict,
         tripdata_csv_path,
         target_folder,
-        repeat = 1,
-        uniform_passenger_count = None):
+        repeat=1,
+        uniform_passenger_count=None):
+
+    df = pd.read_csv(
+        tripdata_csv_path,
+        parse_dates=True,
+        index_col="pickup_datetime",
+    )
+    min_date = min(df.index)
+    max_date = max(df.index)
+
     for i in range(1, repeat+1):
         for demand_size in demand_size_list:
             for ub_label, ub_freq_dict in user_base_segmentation_dict.items():
-                
+
                 freq_info = "_".join(
                     [
                         "{}-{}".format(user_class, int(freq*100))
@@ -589,12 +634,12 @@ def create_instances_exact_sol(
                 )
 
                 file_name = "{area}__{demand:03}__{ub_label}__{freq}__{id:003}__{p_count}".format(
-                    id = i,
-                    area = area,
-                    demand = demand_size,
-                    ub_label = ub_label,
-                    freq = freq_info,
-                    p_count = (
+                    id=i,
+                    area=area,
+                    demand=demand_size,
+                    ub_label=ub_label,
+                    freq=freq_info,
+                    p_count=(
                         'maxpcount_{:02}'.format(uniform_passenger_count)
                         if uniform_passenger_count else 'maxpcount_legacy'
                     )
@@ -602,6 +647,9 @@ def create_instances_exact_sol(
 
                 df_requests = get_n_requests_df(
                     demand_size,
+                    df,
+                    min_date,
+                    max_date,
                     tripdata_csv_path=tripdata_csv_path,
                     class_freq_dict=ub_freq_dict
                 )
@@ -614,42 +662,27 @@ def create_instances_exact_sol(
                 )
 
                 print("Saving at '{}'".format(path_csv))
-                df_requests.to_csv (path_csv, date_format='%Y-%m-%d %H:%M:%S')
-
-
-
+                df_requests.to_csv(path_csv, date_format='%Y-%m-%d %H:%M:%S')
 
 
 def get_n_requests_df(
         number_requests,
+        df,
+        min_date,
+        max_date,
         tripdata_csv_path=None,
         start_timestamp=None,
         end_timestamp=None,
-        class_freq_dict = None):
+        class_freq_dict=None):
 
-    # Generator of data chunks from csv file
-    max_chunk_size = 2000
-    
-    gen_chunks = pd.read_csv(
-        tripdata_csv_path,
-        parse_dates=True,
-        index_col="pickup_datetime",
-        chunksize=min(number_requests, max_chunk_size)
-    )
-
-    trips = pd.DataFrame()
-    for next_batch in gen_chunks:
-        trips = trips.append(next_batch)
-        if len(trips) >= number_requests:
-            trips = trips[:number_requests]
-            break
+    trips = get_trips(number_requests, df, min_date, max_date, 30, first_date=min_date)
 
     population, frequencies = zip(*class_freq_dict.items())
 
     service_class_distribution = random.choices(
         population,
-        weights = frequencies,
-        k = len(trips)
+        weights=frequencies,
+        k=len(trips)
     )
 
     trips['service_class'] = pd.Series(
@@ -659,26 +692,26 @@ def get_n_requests_df(
 
     return trips
 
-def gen_requests(
-    clone_tripdata_path,
-    max_passenger_count,
-    G,
-    output_path,
-    start_timestamp=None,
-    end_timestamp=None,
-    min_dist=None,
-    max_dist=None,
-    distance_dic = None):
 
+def gen_requests(
+        clone_tripdata_path,
+        max_passenger_count,
+        G,
+        output_path,
+        start_timestamp=None,
+        end_timestamp=None,
+        min_dist=None,
+        max_dist=None,
+        distance_dic=None):
 
     print("\nGeneration random requests clone mirror...")
-    
+
     # if file does not exist write header
     if os.path.isfile(output_path):
         print("\nTrip data already exists in '{}'.".format(output_path))
         return
     else:
-    
+
         print("Saving at '{}'.".format(output_path))
 
         # Number of lines to read from huge .csv
@@ -689,7 +722,7 @@ def gen_requests(
             clone_tripdata_path,
             parse_dates=True,
             index_col="pickup_datetime",
-            chunksize=chunksize)    
+            chunksize=chunksize)
 
         count = 0
         print("Time window:", start_timestamp, "----", end_timestamp)
@@ -699,7 +732,7 @@ def gen_requests(
             chunk_dt_clone = chunk_dt_clone[
                 start_timestamp:
                 end_timestamp]
-            
+
             if len(chunk_dt_clone) == 0:
                 break
 
@@ -715,10 +748,10 @@ def gen_requests(
 
             # Convert node ids and passenger count to int
             chunk_dt[["passenger_count", "pk_id", "dp_id"]] = chunk_dt[[
-            "passenger_count", "pk_id", "dp_id"]].astype(int)
-            
-            #print(chunk_dt.head())
-            
+                "passenger_count", "pk_id", "dp_id"]].astype(int)
+
+            # print(chunk_dt.head())
+
             # if file does not exist write header
             #print("Saving first chunk...")
             if not os.path.isfile(output_path):
@@ -752,11 +785,12 @@ def gen_requests(
     # TODO Use frequency generation in the future. Example:
     # date_rng = pd.date_range(start='1/1/2018', end='1/08/2018', freq='H')
 
+
 if __name__ == "__main__":
     pass
     # Get network graph and save
     # G = nw.get_network_from(config.tripdata["region"],
-    #                          config.root_path,
+    #                          config.data_path,
     #                          config.graph_name,
     #                          config.graph_file_name)
     # nw.save_graph_pic(G)
@@ -764,4 +798,3 @@ if __name__ == "__main__":
     # print( "\nGetting distance data...")
     # # Creating distance dictionary [o][d] -> distance
     # distance_dic = nw.get_distance_dic(config.path_dist_dic, G)
-    
