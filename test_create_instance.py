@@ -37,10 +37,26 @@ if __name__ == "__main__":
             "A": 0.68,
             "B": 0.16,
             "C": 0.16
-        }
+        },
+        # "A": {
+        #     "A": 1.00,
+        #     "B": 0.00,
+        #     "C": 0.00
+        # },
+        # "C": {
+        #     "A": 0.00,
+        #     "B": 0.00,
+        #     "C": 1.00
+        # },
+        # "B": {
+        #     "A": 0.00,
+        #     "B": 1.00,
+        #     "C": 0.00
+        # }
     }
 
-    tripdata_csv_path = "D:\\bb\\sq\\input_tripdata\\data\\manhattan-island-new-york-city-new-york-usa\\tripdata\\random_clone_tripdata_excerpt_2011-02-01_000000_2011-02-02_000000_ids.csv"
+    tripdata_csv_path = f"{config.root_tripdata}/random_clone_tripdata_excerpt_2011-02-01_000000_2011-02-02_000000_ids.csv"
+    
 
     gen.create_instances_exact_sol(
         config.graph_name,
@@ -58,9 +74,12 @@ if __name__ == "__main__":
     # ******************************************************************
     # ******************************************************************
 
+    print("# Reading instances created...")
     # Example of file name: 'city__010__BB__A-16_B-68_C-16.csv'
     folder = config.root_static_instances_experiments
     for file in os.listdir(folder):
+
+        print(f" - \"{file}\"")
 
         # Removing extension
         base_name = file[:-4]
@@ -101,5 +120,5 @@ if __name__ == "__main__":
 
         requests = Request.df_to_request_list(df, service_level)
 
-        for r in requests:
+        for r in requests:  
             print(r.get_info())
