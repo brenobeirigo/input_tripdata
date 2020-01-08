@@ -207,9 +207,8 @@ def print_sol(
         # Stores which vehicle picked up request
         if isinstance(i, NodePK):
             i.parent.serviced_by = k
-            print("ALL - Pickup delay", i, ":", var_pickup_delay[i.pid])
-            print("ALL - Ride delay", k, ",", i, ":",
-                  var_invehicle_delay[k.pid, i.pid])
+            #print("ALL - Pickup delay", i, ":", var_pickup_delay[i.pid])
+            #print("ALL - Ride delay", k, ",", i, ":", var_invehicle_delay[k.pid, i.pid])
     total_pk = 0
     total_ride = 0
     logger.info("#### PICKUP AND RIDE DELAYS")
@@ -247,11 +246,21 @@ def print_sol(
 
             # Stores which vehicle picked up request
             if isinstance(i, NodePK):
-                i.parent.serviced_by = k
+                r = i.parent
+                r.serviced_by = k
+                r.pk_delay = var_pickup_delay[i.pid]
+                r.ride_delay = var_invehicle_delay[k.pid, i.pid]
+                r.tier = (
+                    1 if var_first_tier[r.origin.pid] > 0.9 else 2)
                 total_pk += var_pickup_delay[i.pid]
                 total_ride += var_invehicle_delay[k.pid, i.pid]
                 logger.info(
-                    f"{k} - {i}: (pk={var_pickup_delay[i.pid]}, ride={var_invehicle_delay[k.pid, i.pid]})")
+                    f"{k} - {i.pid}[{r.service_class}] "
+                    f"(pk={r.pk_delay}/{i.parent.max_pickup_delay}, "
+                    f"ride={r.ride_delay}/{r.max_in_vehicle_delay}, "
+                    f"tier={r.tier}), "
+                    f"serviced_by={r.serviced_by}"
+                )
 
             vehicle_visits_dict[k][i] = j
 
@@ -328,16 +337,12 @@ def print_sol(
 
     logger.info("###### Requests")
     for r in requests:
-        if var_first_tier[r.origin.pid] > 0.9:
-            tier = "<1st tier>"
-        else:
-            tier = "<2nd tier>"
 
         # logger.info(var_invehicle_delay[(r.serviced_by.pid, r.origin.pid)])
         logger.info("{r_info}{tier}".format(
             r_info=r.get_info(
                 min_dist=travel_time_dict[r.origin][r.destination]),
-            tier=tier)
+            tier=f"<tier={r.tier}>")
         )
 
     return vehicle_routes_dict

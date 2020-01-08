@@ -120,6 +120,9 @@ class Request(object):
         self.embarking_t = 0
         self.disembarking_t = 0
         self.reset()
+        self.pk_delay = -1
+        self.ride_delay = -1
+        self.tier = -1
     
     @property
     def max_in_vehicle_delay(self):
