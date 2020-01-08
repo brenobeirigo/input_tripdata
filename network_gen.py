@@ -8,6 +8,7 @@ import milp.ilp_reachability as ilp
 from collections import defaultdict
 import functools
 import random
+random.seed(1)
 
 
 def node_access(G, node, degree=1, direction="backward"):
@@ -141,7 +142,7 @@ def download_network(region, network_type):
 
 
 def get_reachability_dic(
-    root_path, distance_dic, step=30, total_range=600, speed_km_h=30
+    data_path, distance_dic, step=30, total_range=600, speed_km_h=30
 ):
     """Which nodes are reachable from one another in "step" steps?
     E.g.:
@@ -165,7 +166,7 @@ def get_reachability_dic(
     Arguments:
         distance_dic {dict{float}} -- Distance dictionary
             (dic[o][d] = dist(o,d))
-        root_path {str} -- Where to save reachability dictionary
+        data_path {str} -- Where to save reachability dictionary
 
     Keyword Arguments:
 
@@ -188,8 +189,8 @@ def get_reachability_dic(
 
     reachability_dict = None
     try:
-        reachability_dict = np.load(root_path).item()
-        print("Reading reachability dictionary '{}'...".format(root_path))
+        reachability_dict = np.load(data_path).item()
+        print("Reading reachability dictionary '{}'...".format(data_path))
 
     except:
 
@@ -226,7 +227,7 @@ def get_reachability_dic(
                     reachability_dict[d][steps_in_range_list[step_id]].add(o)
                     # print("o: {} -> d: {} - dist_km: {} - dist_s: {} - index: {} - reachable in(s): {}".format(o,d, dist_m, dist_s, step, max_travel_time_list[step]))
         # print(reachability_dict)
-        np.save(root_path, dict(reachability_dict))
+        np.save(data_path, dict(reachability_dict))
 
     return reachability_dict
 
@@ -410,23 +411,23 @@ def get_sp(G, o, d):
     return nx.shortest_path(G, source=o, target=d)
 
 
-def get_network_from(region, root_path, graph_name, graph_filename):
+def get_network_from(region, data_path, graph_name, graph_filename):
     """Download network from region. If exists (check graph_filename),
     try loading.
 
     Arguments:
         region {string} -- Location. E.g., "Manhattan Island,
             New York City, New York, USA"
-        root_path {string} -- Path where graph is going to saved
+        data_path {string} -- Path where graph is going to saved
         graph_name {string} -- Name to be stored in graph structure
         graph_filename {string} -- File name .graphml to be saved
-            in root_path
+            in data_path
 
     Returns:
         [networkx] -- Graph loaeded or downloaded
     """
     # Street network
-    G = load_network(graph_filename, folder=root_path)
+    G = load_network(graph_filename, folder=data_path)
 
     if G is None:
         # Try to download
@@ -479,7 +480,7 @@ def get_network_from(region, root_path, graph_name, graph_filename):
             G = nx.relabel_nodes(G, mapping)
 
             # Save
-            ox.save_graphml(G, filename=graph_filename, folder=root_path)
+            ox.save_graphml(G, filename=graph_filename, folder=data_path)
 
         except Exception as e:
             print("Error loading graph:", e)
@@ -531,12 +532,12 @@ def get_distance(G, o, d):
     return nx.dijkstra_path_length(G, o, d, weight="length")
 
 
-def get_distance_dic(root_path, G):
+def get_distance_dic(data_path, G):
     """Get distance dictionary (Dijkstra all to all using path length).
     E.g.: [o][d]->distance
 
     Arguments:
-        root_path {string} -- Try to load path before generating
+        data_path {string} -- Try to load path before generating
         G {networkx} -- Street network
 
     Returns:
@@ -545,9 +546,9 @@ def get_distance_dic(root_path, G):
     distance_dic_m = None
     try:
         print(
-            "Trying to read distance data from file:\n'{}'.".format(root_path)
+            "Trying to read distance data from file:\n'{}'.".format(data_path)
         )
-        distance_dic_m = np.load(root_path).item()
+        distance_dic_m = np.load(data_path).item()
 
     except:
         print("Reading failed! Calculating shortest paths...")
@@ -555,7 +556,7 @@ def get_distance_dic(root_path, G):
 
         # Save with pickle (meters)
         distance_dic_m = dict(all_dists_gen)
-        np.save(root_path, distance_dic_m)
+        np.save(data_path, distance_dic_m)
 
     print(
         "Distance data load successfully. #Nodes:",
@@ -648,7 +649,7 @@ def get_dt_distance_matrix(path, dist_matrix):
 def get_region_centers(
         path_region_centers,
         reachability_dic,
-        root_path=None,
+        data_path=None,
         time_limit=60):
     """Find minimum number of region centers, every 'step'
     
@@ -671,7 +672,7 @@ def get_region_centers(
             time steps.  E.g.: reachability_dic[target][max_delay] = s
     
     Keyword Arguments:
-        root_path {str} -- Location where intermediate work (i.e.,
+        data_path {str} -- Location where intermediate work (i.e.,
             previous max. durations from reachability dictionary), and
             model logs should be saved. (default: {None})
         time_limit {int} -- Expiration time (in seconds) of the ILP
@@ -714,10 +715,10 @@ def get_region_centers(
         centers_gurobi_log = None
         centers_sub_sols = None
 
-        if root_path is not None:
+        if data_path is not None:
             # Create folder to save logs
             centers_gurobi_log = "{}/region_centers/gurobi_log".format(
-                root_path
+                data_path
             )
 
             if not os.path.exists(centers_gurobi_log):
@@ -725,7 +726,7 @@ def get_region_centers(
             
             # Create folder to save intermediate work, that is, previous
             # max_delay steps.
-            centers_sub_sols = "{}/region_centers/sub_sols".format(root_path)
+            centers_sub_sols = "{}/region_centers/sub_sols".format(data_path)
             
             if not os.path.exists(centers_sub_sols):
                 os.makedirs(centers_sub_sols)
@@ -764,7 +765,7 @@ def get_region_centers(
                 )
 
                 # Save intermediate steps (region centers of 'max_delay')
-                if root_path:
+                if data_path:
                     np.save(file_name, centers)
 
                 np.save(path_region_centers, centers_dic)

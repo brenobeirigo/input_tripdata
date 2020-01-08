@@ -14,7 +14,7 @@ import milp.ilp_reachability as ilp
 import numpy as np
 
 # Network
-G = nw.load_network(config.graph_file_name, folder=config.root_path)
+G = nw.load_network(config.graph_file_name, folder=config.data_path)
 print("# NETWORK -  NODES: {} ({} -> {}) -- #EDGES: {}".format(
     len(G.nodes()),
     min(G.nodes()),
@@ -39,7 +39,7 @@ reachability_dic = nw.get_reachability_dic(
 
 region_centers = nw.get_region_centers(config.path_region_centers,
                                         reachability_dic,
-                                        root_path = config.root_reachability,
+                                        data_path = config.root_reachability,
                                         step=30,
                                         total_range=600,
                                         speed_km_h=30)

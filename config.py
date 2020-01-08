@@ -27,9 +27,10 @@ with open('config_tripdata/db_config.json') as js:
 graph_name = tripdata["region"].lower().replace(" ", "-").replace(",", "")
 graph_file_name = "{}.graphml".format(graph_name)
 
-root_path = os.getcwd().replace("\\", "/")+"/data/{}".format(graph_name)
-root_tripdata = root_path + "/tripdata"
-root_dist = root_path + "/dist"
+root_path = os.getcwd().replace("\\", "/")
+data_path = root_path+"/data/{}".format(graph_name)
+root_tripdata = data_path + "/tripdata"
+root_dist = data_path + "/dist"
 
 ###### Reachability
 # Reachability layers (e.g., reachable in 30, 60, ..., total_range steps)
@@ -40,13 +41,13 @@ speed_km_h = 30
 MAX_VEHICLE_CAPACITY = 4
 
 # Setup time limit (seconds)
-TIME_LIMIT = 7200
+TIME_LIMIT = 1800
 
 # Experiment starts at
 START_DATE = datetime.strptime("2011-02-01 00:00:00", "%Y-%m-%d %H:%M:%S")
 
-root_reachability = root_path + "/reachability_{}_{}{}".format(step, total_range, ("_kmh{}".format(speed_km_h) if speed_km_h else ""))
-root_static_instances = root_path + "/static_instances"
+root_reachability = data_path + "/reachability_{}_{}{}".format(step, total_range, ("_kmh{}".format(speed_km_h) if speed_km_h else ""))
+root_static_instances = data_path + "/static_instances"
 
 root_static_instances_experiments = root_static_instances + "/experiments"
 root_static_instances_logs = root_static_instances + "/logs"

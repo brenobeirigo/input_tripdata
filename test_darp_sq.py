@@ -1,5 +1,6 @@
 from pprint import pprint
 import random
+random.seed(1)
 from datetime import timedelta, datetime
 import json
 import config
@@ -68,6 +69,8 @@ def get_list_of_vehicles_in_region_centers(
         distance_dict):
 
     vehicle_list = []
+
+    pprint(list_of_nodes_to_reach)
 
     for node_to_reach in list_of_nodes_to_reach:
         set_centers_can_reach = set(list_of_region_centers).intersection(
@@ -182,7 +185,7 @@ def run_milp():
     # Getting network
     G = nw.get_network_from(
         config.tripdata["region"],
-        config.root_path,
+        config.data_path,
         config.graph_name,
         config.graph_file_name,
     )

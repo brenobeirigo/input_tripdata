@@ -15,7 +15,7 @@ import tripdata_gen as tp
 pd.set_option("display.max_columns", 100)
 
 # Network
-G = nw.load_network(config.graph_file_name, folder=config.root_path)
+G = nw.load_network(config.graph_file_name, folder=config.data_path)
 print(
     "# NETWORK -  NODES: {} ({} -> {}) -- #EDGES: {}".format(
         len(G.nodes()), min(G.nodes()), max(G.nodes()), len(G.edges())

@@ -17,8 +17,8 @@ def main():
         
 
     # Create all folders where data will be saved
-    if not os.path.exists(config.root_path):
-        os.makedirs(config.root_path)
+    if not os.path.exists(config.data_path):
+        os.makedirs(config.data_path)
 
     if not os.path.exists(config.root_dist):
         os.makedirs(config.root_dist)
@@ -48,12 +48,12 @@ def main():
 
     # Get network graph and save
     G = gen.get_network_from(config.tripdata["region"],
-                             config.root_path,
+                             config.data_path,
                              config.graph_name,
                              config.graph_file_name)
     
     
-    gen.save_graph_pic(G, config.root_path)
+    gen.save_graph_pic(G, config.data_path)
 
     print( "\n####################### Getting distance data ####################### ")
     # Creating distance dictionary [o][d] -> distance
@@ -146,7 +146,7 @@ def main():
     # in reachability dictionary
     region_centers = gen.get_region_centers(config.path_region_centers,
                                             reachability,
-                                            root_path= config.root_reachability,
+                                            data_path= config.root_reachability,
                                             step=config.step,
                                             total_range=config.total_range,
                                             speed_km_h=config.speed_km_h)

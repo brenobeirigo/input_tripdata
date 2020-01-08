@@ -12,6 +12,7 @@ from collections import defaultdict
 from datetime import timedelta, datetime
 from pprint import pprint
 import random
+random.seed(1)
 from gurobipy import Model, GurobiError, GRB, quicksum
 
 
@@ -52,8 +53,8 @@ DENY_SERVICE = False
 TIME_LIMIT = 3600
 
 # Operational scenario
-SCENARIO_FILE_PATH = ("D:/bb/sq/scenario/"
-                      "week/allow_hiring.json")
+SCENARIO_FILE_PATH = (config.root_path +
+                      "/scenario/week/allow_hiring.json")
 
 # Reading scenario from file
 with open(SCENARIO_FILE_PATH) as js:
@@ -335,7 +336,7 @@ def big_w(k, i):
 # Getting network
 G = nw.get_network_from(
     config.tripdata["region"],
-    config.root_path,
+    config.data_path,
     config.graph_name,
     config.graph_file_name
 )
@@ -366,7 +367,7 @@ reachability = nw.get_reachability_dic(
 region_centers = nw.get_region_centers(
     config.path_region_centers,
     reachability,
-    root_path=config.root_reachability,
+    data_path=config.root_reachability,
     step=config.step,
     total_range=config.total_range,
     speed_km_h=config.speed_km_h)

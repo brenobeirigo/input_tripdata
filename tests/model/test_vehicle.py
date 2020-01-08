@@ -8,7 +8,7 @@ from datetime import datetime
 from pprint import pprint
 
 G = gen.get_network_from(config.tripdata["region"],
-                            config.root_path,
+                            config.data_path,
                             config.graph_name,
                             config.graph_file_name)
 
