@@ -1,6 +1,0 @@
-{
-  "region": "Manhattan Island, New York City, New York, USA",
-  "url_tripdata": "https://s3.amazonaws.com/nyc-tlc/trip+data/yellow_tripdata_2011-02.csv",
-  "start": "2011-2-1",
-  "stop": "2011-2-28"
-}
