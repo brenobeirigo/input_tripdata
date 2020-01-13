@@ -8,7 +8,7 @@ __pycache__/
 *.png
 *.jpg
 
-# Gurobi logs
+# Logs
 *.log
 
 # Gurobi models

@@ -41,7 +41,7 @@ speed_km_h = 30
 MAX_VEHICLE_CAPACITY = 4
 
 # Setup time limit (seconds)
-TIME_LIMIT = 1800
+TIME_LIMIT = 5*3600
 
 # Experiment starts at
 START_DATE = datetime.strptime("2011-02-01 00:00:00", "%Y-%m-%d %H:%M:%S")
@@ -51,7 +51,7 @@ root_static_instances = data_path + "/static_instances"
 
 root_static_instances_experiments = root_static_instances + "/experiments"
 root_static_instances_logs = root_static_instances + "/logs"
-root_static_instances_lps = root_static_instances + "/ilps"
+root_static_instances_lps = root_static_instances + "/mip_logs"
 static_instances_results_path = "{}/results.csv".format(root_static_instances)
 
 # Create and store graph name
