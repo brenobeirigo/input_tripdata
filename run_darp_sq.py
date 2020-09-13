@@ -564,7 +564,11 @@ def run_milp():
 
                 r_info = dict(r_info_sum)
                 for k, v in r_info_mean.items():
-                    r_info[k] = np.mean(v)
+                    try:
+                        r_info[k] = np.mean(v)
+                    except:
+                        logger.info(f"Empty: {k}={v}")
+                        r_info[k] = 0
 
                 df_r = pd.DataFrame([pd.Series(r_info)])
                 df_r.sort_index(axis=1, inplace=True)
