@@ -40,6 +40,7 @@
   "unit_time": "sec",
   "repeat": 5,
   "uniform_passenger_count": 1,
+  "speed_km_h": 30,
   "scenario": {
     "sq": {
       "sq_heterogeneous": {
