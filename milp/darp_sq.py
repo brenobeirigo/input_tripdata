@@ -281,7 +281,7 @@ class ModelSQ:
                     logger.info(
                         f"{k} - {i.pid}[{r.service_class}] "
                         f"(pk={r.pk_delay:6.2f}/{i.parent.max_pickup_delay:6.2f}, "
-                        f"ride={r.ride_delay:6.2f}/{r.max_in_vehicle_delay:6.2f}, "
+                        f"ride={r.ride_delay:6.2f}/{r.max_total_delay:6.2f}, "
                         f"tier={r.tier}), "
                         f"serviced_by={r.serviced_by}"
                     )
@@ -781,7 +781,7 @@ class ModelSQ:
                 <= (
                         i.parent.max_pickup_delay * self.m_var_first_tier[i.pid]
                         + i.parent.max_total_delay * (1 - self.m_var_first_tier[i.pid])
-                    )
+                )
                 for i in Node.origins
             ),
             "FIRST_TIER",
