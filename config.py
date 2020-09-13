@@ -32,9 +32,25 @@ nodeset_gps_path = mapdata["nodeset_gps_path"]
 with open(nodeset_gps_path) as js:
     nodeset_gps = json.load(js)["nodes"]
 
+with open("config/config_testcase_sec.json") as js:
+    config_testcase = json.load(js)
+    demand_sizes = config_testcase["demand_sizes"]
+    user_segmentation_dict = config_testcase["user_segmentation_dict"]
+    root_static_instances_experiments = config_testcase["demand_sizes"]
+    min_datetime = config_testcase["min_datetime"]
+    repeat = config_testcase["repeat"]
+    unit_time = config_testcase["unit_time"]
+    uniform_passenger_count = config_testcase["uniform_passenger_count"]
+    service_level = config_testcase["service_level"]
+    scenario = config_testcase["scenario"]
+
 root_static_instances = mapdata["output_path"]
 root_static_instances_experiments = root_static_instances + "/experiments"
 root_static_instances_logs = root_static_instances + "/logs"
+
+if not os.path.exists(root_static_instances_experiments):
+    os.makedirs(root_static_instances_experiments)
+
 
 root_static_instances_lps = mapdata["mip_logs"]
 static_instances_results_path = "{}/results.csv".format(root_static_instances)

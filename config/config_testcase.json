@@ -1,0 +1,108 @@
+{
+  "min_datetime": "2011-02-01 18:00:00",
+  "service_level": {
+    "A": {
+      "pk_delay": 3,
+      "trip_delay": 5,
+      "sharing_preference": 0
+    },
+    "B": {
+      "pk_delay": 5,
+      "trip_delay": 5,
+      "sharing_preference": 1
+    },
+    "C": {
+      "pk_delay": 5,
+      "trip_delay": 5,
+      "sharing_preference": 1
+    }
+  },
+  "user_segmentation_dict": {
+    "BB": {
+      "A": 0.16,
+      "B": 0.68,
+      "C": 0.16
+    },
+    "CC": {
+      "A": 0.16,
+      "B": 0.16,
+      "C": 0.68
+    },
+    "AA": {
+      "A": 0.68,
+      "B": 0.16,
+      "C": 0.16
+    },
+    "B": {
+      "A": 0.00,
+      "B": 1.00,
+      "C": 0.00
+    }
+  },
+  "demand_sizes": [
+    5
+  ],
+  "unit_time": "min",
+  "repeat": 5,
+  "uniform_passenger_count": 1,
+  "scenario": {
+    "sq": {
+      "sq_heterogeneous": {
+        "A": {
+          "pk_delay": 3,
+          "sharing_preference": 0,
+          "trip_delay": 5
+        },
+        "B": {
+          "pk_delay": 5,
+          "sharing_preference": 1,
+          "trip_delay": 5
+        },
+        "C": {
+          "pk_delay": 5,
+          "sharing_preference": 1,
+          "trip_delay": 5
+        }
+      },
+      "sq_homogeneous": {
+        "A": {
+          "pk_delay": 5,
+          "sharing_preference": 0,
+          "trip_delay": 5
+        },
+        "B": {
+          "pk_delay": 5,
+          "sharing_preference": 1,
+          "trip_delay": 5
+        },
+        "C": {
+          "pk_delay": 5,
+          "sharing_preference": 1,
+          "trip_delay": 5
+        }
+      }
+    },
+    "sr": {
+      "sr_050": {
+        "A": 0.5,
+        "B": 0.5,
+        "C": 0.5
+      },
+      "sr_080": {
+        "A": 0.8,
+        "B": 0.8,
+        "C": 0.8
+      },
+      "sr_090": {
+        "A": 0.9,
+        "B": 0.9,
+        "C": 0.9
+      },
+      "sr_100": {
+        "A": 1.0,
+        "B": 1.0,
+        "C": 1.0
+      }
+    }
+  }
+}
