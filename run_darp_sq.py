@@ -2,6 +2,8 @@ import os
 import random
 from pprint import pprint
 
+import milp.darp_sq_preprocessing
+
 random.seed(1)
 from collections import namedtuple
 import pandas as pd
@@ -289,31 +291,13 @@ def run_milp():
             print(f"Results is empty. Removing to start clean... {e}")
             os.remove(config.static_instances_results_path)
 
-    sq_heterogeneous = {
-        "A": {"pk_delay": 180, "sharing_preference": 0, "trip_delay": 420},
-        "B": {"pk_delay": 300, "sharing_preference": 1, "trip_delay": 420},
-        "C": {"pk_delay": 420, "sharing_preference": 1, "trip_delay": 420},
-    }
-
-    sq_homogeneous = {
-        "A": {"pk_delay": 420, "sharing_preference": 0, "trip_delay": 420},
-        "B": {"pk_delay": 420, "sharing_preference": 1, "trip_delay": 420},
-        "C": {"pk_delay": 420, "sharing_preference": 1, "trip_delay": 420},
-    }
-
-    # sr_paper = {"A": 0.9, "B": 0.8, "C": 0.7}
-    sr_050 = {"A": 0.5, "B": 0.5, "C": 0.5}
-    sr_080 = {"A": 0.8, "B": 0.8, "C": 0.8}
-    sr_090 = {"A": 0.9, "B": 0.9, "C": 0.9}
-    sr_100 = {"A": 1.0, "B": 1.0, "C": 1.0}
-
     # Test lower and upper end for service rates
     tests = {
-        "slevels_050": (sq_heterogeneous, sr_050),
-        "slevels_080": (sq_heterogeneous, sr_080),
-        "slevels_090": (sq_heterogeneous, sr_090),
-        "slevels_100": (sq_heterogeneous, sr_100),
-        "status_quo": (sq_homogeneous, sr_100),
+        "slevels_050": (config.scenario["sq"]["sq_heterogeneous"], config.scenario["sr"]["sr_050"]),
+        "slevels_080": (config.scenario["sq"]["sq_heterogeneous"], config.scenario["sr"]["sr_080"]),
+        "slevels_090": (config.scenario["sq"]["sq_heterogeneous"], config.scenario["sr"]["sr_090"]),
+        "slevels_100": (config.scenario["sq"]["sq_heterogeneous"], config.scenario["sr"]["sr_100"]),
+        "status_quo": (config.scenario["sq"]["sq_homogeneous"], config.scenario["sr"]["sr_100"]),
     }
 
     # Get the lowest pickup delay from all user class
@@ -387,13 +371,14 @@ def run_milp():
             # Dictionary of viable connections (and distances) between
             # vehicle and request nodes.
             # E.g.: viable_nw[NodeDP][NodePK] = DIST_S
-            travel_time_dict = sq.get_viable_network(
+            travel_time_dict = milp.darp_sq_preprocessing.get_viable_network(
                 Node.depots,
                 Node.origins,
                 Node.destinations,
                 Request.node_pairs_dict,
                 distance_dic,
                 speed=config.speed_km_h,
+                unit=config.unit_time
             )
 
             # Creating vehicles
