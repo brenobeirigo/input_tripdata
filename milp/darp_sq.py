@@ -4,8 +4,10 @@ from datetime import timedelta, datetime
 from pprint import pprint
 
 from gurobipy import Model, GurobiError, GRB, quicksum
+from gurobipy.gurobipy import tuplelist
 
-from model.Node import Node, NodePK, NodeDL, NodeDepot
+from milp.darp_sq_preprocessing import get_valid_rides_set, get_valid_visits
+from model.Node import Node, NodePK, NodeDL
 from model.Request import Request
 
 # Objective function
@@ -15,62 +17,6 @@ TOTAL_DELAY = "total_delay"
 N_PRIVATE_RIDES = "private_rides"
 N_FIRST_TIER = "first_tier_rides"
 TOTAL_FLEET_CAPACITY = "fleet_capacity"
-
-
-def get_viable_network(
-        depot_list,
-        origin_list,
-        destination_list,
-        pair_dic,
-        distance_dic,
-        speed=None):
-    def dist_sec(o, d):
-        dist_meters = distance_dic[o.network_node_id][d.network_node_id]
-        if speed is not None:
-            dist_seconds = int(3.6 * dist_meters / speed + 0.5)
-            return dist_seconds
-        else:
-            return dist_meters
-
-    # Graph NxN - Remove self connections and arcs arriving in end depot
-    nodes_network = defaultdict(dict)
-
-    # Depots only connect to origins
-    for depot in depot_list:
-        for o in origin_list:
-            # But only if vehicle can service demand entirely
-            # if o.parent.demand <= depot.parent.capacity:
-            nodes_network[depot][o] = dist_sec(depot, o)
-
-    # Origins connect to other origins
-    for o1 in origin_list:
-        for o2 in origin_list:
-
-            # No loop
-            if o1 != o2:
-                nodes_network[o1][o2] = dist_sec(o1, o2)
-
-    # Origins connect to destinations
-    for o in origin_list:
-        for d in destination_list:
-            nodes_network[o][d] = dist_sec(o, d)
-
-    # Destination connect to origins
-    for d in destination_list:
-        for o in origin_list:
-
-            # But not if origin and destination belong to same request
-            if d != pair_dic[o]:
-                nodes_network[d][o] = dist_sec(d, o)
-
-    # Destinations connect to destinations
-    for d1 in destination_list:
-        for d2 in destination_list:
-            # No loop
-            if d1 != d2:
-                nodes_network[d1][d2] = dist_sec(d1, d2)
-
-    return nodes_network
 
 
 def get_node_tw_dic(vehicles, request_list, distance_dict):
@@ -96,79 +42,6 @@ def get_node_tw_dic(vehicles, request_list, distance_dict):
     return node_timewindow_dict
 
 
-def get_valid_rides_set(
-        vehicles,
-        pairs_dict,
-        distance_dict):
-    valid_rides = set()
-
-    for k in vehicles:
-        for i, to_dict in distance_dict.items():
-
-            # A vehicle can only start from its own depot
-            if isinstance(i, NodeDepot) and k.pos is not i:
-                continue
-
-            # A vehicle shall not enter an origin node with a demand
-            # higher than its own capacity
-            if (isinstance(i.parent, Request)
-                    and k.capacity < i.parent.demand):
-                continue
-
-            for j, dist_i_j in to_dict.items():
-
-                # No vehicle can visit depot
-                if isinstance(j, NodeDepot):
-                    continue
-
-                # A vehicle shall not enter a destination node with a
-                # demand higher than its own capacity
-                if (isinstance(j.parent, Request)
-                        and k.capacity < j.parent.demand):
-                    continue
-
-                if isinstance(i, NodePK):
-
-                    # Destination of pickup node i
-                    di = pairs_dict[i]
-
-                    if j != di:
-
-                        # Cannot access i's final destination from
-                        # intermediate node j
-                        if di not in distance_dict[j].keys():
-                            continue
-
-                        max_ride_delay = (
-                                distance_dict[i][di]
-                                + i.parent.max_total_delay
-                        )
-
-                        dist_j_di = distance_dict[j][di]
-
-                        # Can't arrive in i's destination on time
-                        # passing by intermediate node j
-                        if dist_i_j + dist_j_di > max_ride_delay:
-                            continue
-
-                    # Can't get in j on time
-                    if i.earliest > j.latest:
-                        continue
-
-                # k, i, j is a valid arc
-                valid_rides.add((k, i, j))
-
-    return valid_rides
-
-
-def get_valid_visits(valid_rides):
-    valid_visit = set()
-    for v, i, j in valid_rides:
-        valid_visit.add((v, i))
-        valid_visit.add((v, j))
-    return valid_visit
-
-
 def big_m(i, j, t_i_j):
     service_i = i.service_duration if i.service_duration else 0
     big_m = max(0, int(i.latest + t_i_j + service_i - j.earliest))
@@ -177,170 +50,6 @@ def big_m(i, j, t_i_j):
 
 def big_w(k, i):
     return min(2 * k.capacity, 2 * k.capacity + (i.demand if i.demand else 0))
-
-
-def print_sol(
-        vehicles,
-        requests,
-        travel_time_dict,
-        valid_rides,
-        start_date,
-        var_arrival_time,
-        var_invehicle_delay,
-        var_flow,
-        var_load,
-        var_first_tier,
-        var_pickup_delay
-):
-    logger = logging.getLogger('run_experiment.milp_solution')
-
-    # Stores vehicle visits k -> from_node-> to_node
-    vehicle_visits_dict = {k: dict() for k in vehicles}
-
-    # Ordered list of nodes visited by each vehicle
-    vehicle_routes_dict = dict()
-
-    for k, i, j in valid_rides:
-        # Stores which vehicle picked up request
-        if isinstance(i, NodePK):
-            i.parent.serviced_by = k
-            # print("ALL - Pickup delay", i, ":", var_pickup_delay[i.pid])
-            # print("ALL - Ride delay", k, ",", i, ":", var_invehicle_delay[k.pid, i.pid])
-    total_pk = 0
-    total_ride = 0
-    logger.info("#### PICKUP AND RIDE DELAYS")
-    for k, i, j in valid_rides:
-
-        # WARNING - FLOATING POINT ERROR IN GUROBI
-
-        # This can happen due to feasibility and integrality tolerances.
-        # You will also find that solution that Gurobi (as all floating-
-        # point based MIP solvers) provides may slightly violate your
-        # constraints.
-
-        # The reason is that floating-point numeric as implemented in
-        # the CPU hardware is not exact. Rounding errors can (and
-        # usually will) happen. As a consequence, MIP solvers use
-        # tolerances within which a solution is still considered to be
-        # correct. The default tolerance for integrality in Gurobi
-        # is 1e-5, the default feasibility tolerance is 1e-6. This means
-        # that Gurobi is allowed to consider a value that is at most
-        # 1e-5 away from an integer to still be integral, and it is
-        # allowed to consider a constraint that is violated by at most
-        # 1e-6 to still be satisfied.
-
-        # If there is a path from i to j by vehicle k
-        # 0.9 accounts for rounding errors (feasibility/integrality
-        # tolerances)
-        if var_flow[k.pid, i.pid, j.pid] > 0.9:
-
-            # Updating node's arrival and departure times
-            arr_i = var_arrival_time[k.pid, i.pid]
-            arr_j = var_arrival_time[k.pid, j.pid]
-
-            i.departure = start_date + timedelta(seconds=arr_i)
-            j.arrival = start_date + timedelta(seconds=arr_j)
-
-            # Stores which vehicle picked up request
-            if isinstance(i, NodePK):
-                r = i.parent
-                r.serviced_by = k
-                r.pk_delay = var_pickup_delay[i.pid]
-                r.ride_delay = var_invehicle_delay[k.pid, i.pid]
-                r.tier = (
-                    1 if var_first_tier[r.origin.pid] > 0.9 else 2)
-                total_pk += var_pickup_delay[i.pid]
-                total_ride += var_invehicle_delay[k.pid, i.pid]
-                logger.info(
-                    f"{k} - {i.pid}[{r.service_class}] "
-                    f"(pk={r.pk_delay}/{i.parent.max_pickup_delay}, "
-                    f"ride={r.ride_delay}/{r.max_in_vehicle_delay}, "
-                    f"tier={r.tier}), "
-                    f"serviced_by={r.serviced_by}"
-                )
-
-            vehicle_visits_dict[k][i] = j
-
-    for k, from_to in vehicle_visits_dict.items():
-        # Does the vehicle service any request?
-        if from_to:
-            logger.info("Ordering vehicle {}({})...".format(k.pid, k.pos.pid))
-            random_center_id = k.pos
-            ordered_list = list()
-            while True:
-                ordered_list.append(random_center_id)
-                next_id = from_to[random_center_id]
-                random_center_id = next_id
-                if random_center_id not in from_to.keys():
-                    ordered_list.append(random_center_id)
-                    break
-            vehicle_routes_dict[k] = ordered_list
-
-    logger.info(f"#### TOTAL DELAY -> PK={total_pk:>5} RIDE={total_ride:>5}")
-
-    def duration_format(t):
-        return "{:02}:{:02}:{:02}".format(
-            int(t / 3600), int((t % 3600) / 60), int(t % 60)
-        )
-
-    logger.info("###### Routes")
-    for k, node_list in vehicle_routes_dict.items():
-        logger.info(
-            "######### Vehicle {} (Departure:{})".format(
-                k.pid, k.pos.departure
-            )
-        )
-
-        precedent_node = None
-        for current_node in node_list:
-            if precedent_node and precedent_node is not current_node:
-                trip_duration = travel_time_dict[precedent_node][current_node]
-
-                total_duration = (
-                        current_node.arrival - precedent_node.departure
-                ).total_seconds()
-
-                idle_time = total_duration - trip_duration
-
-                logger.info(
-                    "   ||    {} (trip)".format(duration_format(trip_duration))
-                )
-
-                logger.info(
-                    "   ||    {} (idle)".format(duration_format(idle_time)))
-
-            logger.info(
-                (
-                    "   {node_id} - ({arrival} , {departure}) "
-                    "[load = {load}]"
-                ).format(
-                    load=var_load[k.pid, current_node.pid],
-                    node_id=current_node.pid,
-                    arrival=(
-                        current_node.arrival.strftime("%H:%M:%S")
-                        if current_node.arrival
-                        else "--:--:--"
-                    ),
-                    departure=(
-                        current_node.departure.strftime("%H:%M:%S")
-                        if current_node.departure
-                        else "--:--:--"
-                    ),
-                )
-            )
-
-            precedent_node = current_node
-
-    logger.info("###### Requests")
-    for r in requests:
-        # logger.info(var_invehicle_delay[(r.serviced_by.pid, r.origin.pid)])
-        logger.info("{r_info}{tier}".format(
-            r_info=r.get_info(
-                min_dist=travel_time_dict[r.origin][r.destination]),
-            tier=f"<tier={r.tier}>")
-        )
-
-    return vehicle_routes_dict
 
 
 class ModelSQ:
@@ -358,6 +67,7 @@ class ModelSQ:
             log_path=None,
             lp_path=None):
 
+        self.vtype_time = GRB.INTEGER
         self.priority_list_low_to_high = ["C", "B", "A"]
         self.vehicles = vehicles
         self.requests = requests
@@ -401,6 +111,186 @@ class ModelSQ:
         self.class_hierarchical_objectives = {}
         self.hierarchical_objectives = {}
 
+    def print_sol(self):
+
+        vehicle_visits_dict = self.realize_solution_and_get_vehicle_visits_dict()
+
+        vehicle_routes_dict = self.get_vehicle_routes_dict(vehicle_visits_dict)
+
+        self.log_request_status()
+
+        return vehicle_routes_dict
+
+    def log_request_status(self):
+
+        logger = logging.getLogger('run_experiment.milp_solution')
+        logger.info("###### Requests")
+
+        for r in self.requests:
+            # logger.info(var_invehicle_delay[(r.serviced_by.pid, r.origin.pid)])
+            logger.info("{r_info}{tier}".format(
+                r_info=r.get_info(
+                    min_dist=self.travel_time_dict[r.origin][r.destination]),
+                tier=f"<tier={r.tier}>")
+            )
+
+    def get_vehicle_routes_dict(self, vehicle_visits_dict):
+
+        logger = logging.getLogger('run_experiment.milp_solution')
+
+        # Ordered list of nodes visited by each vehicle
+        vehicle_routes_dict = dict()
+        var_load = {
+            k: int(v) for k, v in self.m.getAttr("x", self.m_var_load).items()
+        }
+        for k, from_to in vehicle_visits_dict.items():
+            # Does the vehicle service any request?
+            if from_to:
+                logger.info("Ordering vehicle {}({})...".format(k.pid, k.pos.pid))
+                random_center_id = k.pos
+                ordered_list = list()
+                while True:
+                    ordered_list.append(random_center_id)
+                    next_id = from_to[random_center_id]
+                    random_center_id = next_id
+                    if random_center_id not in from_to.keys():
+                        ordered_list.append(random_center_id)
+                        break
+                vehicle_routes_dict[k] = ordered_list
+
+        def duration_format(t):
+            return "{:02}:{:02}:{:02}".format(
+                int(t / 3600), int((t % 3600) / 60), int(t % 60)
+            )
+
+        logger.info("###### Routes")
+        for k, node_list in vehicle_routes_dict.items():
+            logger.info(
+                "######### Vehicle {} (Departure:{})".format(
+                    k.pid, k.pos.departure
+                )
+            )
+
+            precedent_node = None
+            for current_node in node_list:
+                if precedent_node and precedent_node is not current_node:
+                    trip_duration = self.travel_time_dict[precedent_node][current_node]
+
+                    total_duration = (
+                            current_node.arrival - precedent_node.departure
+                    ).total_seconds()
+
+                    idle_time = total_duration - trip_duration
+
+                    logger.info(
+                        "   ||    {} (trip)".format(duration_format(trip_duration))
+                    )
+
+                    logger.info(
+                        "   ||    {} (idle)".format(duration_format(idle_time)))
+
+                logger.info(
+                    (
+                        "   {node_id} - ({arrival} , {departure}) "
+                        "[load = {load}]"
+                    ).format(
+                        load=var_load[k.pid, current_node.pid],
+                        node_id=current_node.pid,
+                        arrival=(
+                            current_node.arrival.strftime("%H:%M:%S")
+                            if current_node.arrival
+                            else "--:--:--"
+                        ),
+                        departure=(
+                            current_node.departure.strftime("%H:%M:%S")
+                            if current_node.departure
+                            else "--:--:--"
+                        ),
+                    )
+                )
+
+                precedent_node = current_node
+        return vehicle_routes_dict
+
+    def realize_solution_and_get_vehicle_visits_dict(self):
+
+        logger = logging.getLogger('run_experiment.milp_solution')
+
+        var_flow = self.m.getAttr("x", self.m_var_flow)
+        var_first_tier = self.m.getAttr("x", self.m_var_first_tier)
+        var_invehicle_delay = self.m.getAttr("x", self.m_var_invehicle_delay)
+        var_pickup_delay = self.m.getAttr('x', self.m_var_pickup_delay)
+        var_arrival_time = self.m.getAttr("x", self.m_var_arrival_time)
+
+        # Stores vehicle visits k -> from_node-> to_node
+        vehicle_visits_dict = {k: dict() for k in self.vehicles}
+
+        for k, i, j in self.valid_rides:
+            # Stores which vehicle picked up request
+            if isinstance(i, NodePK):
+                i.parent.serviced_by = k
+                # print("ALL - Pickup delay", i, ":", var_pickup_delay[i.pid])
+                # print("ALL - Ride delay", k, ",", i, ":", var_invehicle_delay[k.pid, i.pid])
+
+        total_pk = 0
+        total_ride = 0
+
+        logger.info("#### PICKUP AND RIDE DELAYS")
+        for k, i, j in self.valid_rides:
+
+            # WARNING - FLOATING POINT ERROR IN GUROBI
+
+            # This can happen due to feasibility and integrality tolerances.
+            # You will also find that solution that Gurobi (as all floating-
+            # point based MIP solvers) provides may slightly violate your
+            # constraints.
+
+            # The reason is that floating-point numeric as implemented in
+            # the CPU hardware is not exact. Rounding errors can (and
+            # usually will) happen. As a consequence, MIP solvers use
+            # tolerances within which a solution is still considered to be
+            # correct. The default tolerance for integrality in Gurobi
+            # is 1e-5, the default feasibility tolerance is 1e-6. This means
+            # that Gurobi is allowed to consider a value that is at most
+            # 1e-5 away from an integer to still be integral, and it is
+            # allowed to consider a constraint that is violated by at most
+            # 1e-6 to still be satisfied.
+
+            # If there is a path from i to j by vehicle k
+            # 0.9 accounts for rounding errors (feasibility/integrality
+            # tolerances)
+            if var_flow[k.pid, i.pid, j.pid] > 0.9:
+
+                # Updating node's arrival and departure times
+                arr_i = var_arrival_time[k.pid, i.pid]
+                arr_j = var_arrival_time[k.pid, j.pid]
+
+                i.departure = self.start_date + timedelta(seconds=arr_i)
+                j.arrival = self.start_date + timedelta(seconds=arr_j)
+
+                # Stores which vehicle picked up request
+                if isinstance(i, NodePK):
+                    r = i.parent
+                    r.serviced_by = k
+                    r.pk_delay = var_pickup_delay[i.pid]
+                    r.ride_delay = var_invehicle_delay[k.pid, i.pid]
+                    r.tier = (
+                        1 if var_first_tier[r.origin.pid] > 0.9 else 2)
+                    total_pk += var_pickup_delay[i.pid]
+                    total_ride += var_invehicle_delay[k.pid, i.pid]
+                    logger.info(
+                        f"{k} - {i.pid}[{r.service_class}] "
+                        f"(pk={r.pk_delay:6.2f}/{i.parent.max_pickup_delay:6.2f}, "
+                        f"ride={r.ride_delay:6.2f}/{r.max_in_vehicle_delay:6.2f}, "
+                        f"tier={r.tier}), "
+                        f"serviced_by={r.serviced_by}"
+                    )
+
+                vehicle_visits_dict[k][i] = j
+
+        logger.info(f"#### TOTAL DELAY -> PK={total_pk:>5} RIDE={total_ride:>5}")
+        return vehicle_visits_dict
+
     def run(self):
 
         print("STARTING DARP-SQ...")
@@ -432,7 +322,7 @@ class ModelSQ:
             # TIME WINDOW CONSTRAINTS ######################################
             self.earliest_pickup_greater_than_earliest_arrival()
             self.first_tier_consistency()
-            self.second_tier_consistency()
+            # self.second_tier_consistency()
 
             # LOADING CONSTRAINTS ##########################################
             self.load_consistency()
@@ -500,14 +390,6 @@ class ModelSQ:
 
     def get_solution_dict(self):
 
-        var_flow = self.m.getAttr("x", self.m_var_flow)
-        var_first_tier = self.m.getAttr("x", self.m_var_first_tier)
-        var_invehicle_delay = self.m.getAttr("x", self.m_var_invehicle_delay)
-        var_load = {
-            k: int(v) for k, v in self.m.getAttr("x", self.m_var_load).items()
-        }
-        var_pickup_delay = self.m.getAttr('x', self.m_var_pickup_delay)
-        var_arrival_time = self.m.getAttr("x", self.m_var_arrival_time)
         self.logger.info("REQUEST DICTIONARY")
 
         ############################################################
@@ -533,19 +415,7 @@ class ModelSQ:
         self.extract_objective_functions_from_model()
         print("### Objective functions:")
         pprint(self.dict_sol)
-        vehicle_routes_dict = print_sol(
-            self.vehicles,
-            self.requests,
-            self.travel_time_dict,
-            self.valid_rides,
-            self.start_date,
-            var_arrival_time,
-            var_invehicle_delay,
-            var_flow,
-            var_load,
-            var_first_tier,
-            var_pickup_delay
-        )
+        vehicle_routes_dict = self.print_sol()
         capacity_count = defaultdict(int)
 
         for v in vehicle_routes_dict:
@@ -574,39 +444,75 @@ class ModelSQ:
 
     def declare_variables(self):
         # 1 if vehicle k travels arc (i,j)
+        self.add_var_flow()
+
+        # 1 if user receives first-tier service levels
+        self.add_var_first_tier()
+
+        # Request pickup delay in [0, 2*request_max_delay]
+        self.add_var_pickup_delay()
+
+        # Arrival time of vehicle k at node i
+        self.add_var_arrival_time()
+
+        # Load of compartment c of vehicle k at pickup node i
+        self.add_var_load()
+
+        # Ride time of request i serviced by vehicle
+        self.add_var_invehicle_delay()
+
+    def add_var_flow(self):
         self.m_var_flow = self.m.addVars(
             [(k.pid, i.pid, j.pid) for k, i, j in self.valid_rides],
             vtype=GRB.BINARY,
-            name="x",
+            name="trip_k_i_j",
         )
-        # 1 if user receives first-tier service levels
+
+    def add_var_first_tier(self):
         self.m_var_first_tier = self.m.addVars(
-            [i.pid for i in Node.origins], vtype=GRB.BINARY, name="y"
+            [i.pid for i in Node.origins], vtype=GRB.BINARY, name="sq_achieved"
         )
-        # Request pickup delay in [0, 2*request_max_delay]
+
+    def add_var_pickup_delay(self):
         self.m_var_pickup_delay = self.m.addVars(
-            [i.pid for i in Node.origins], vtype=GRB.INTEGER, lb=0, name="d"
+            [i.pid for i in Node.origins],
+            vtype=self.vtype_time,
+            lb=0,
+            ub=[i.parent.max_total_delay for i in Node.origins],
+            name="pickup_delay"
         )
-        # Arrival time of vehicle k at node i
+
+    def add_var_arrival_time(self):
         self.m_var_arrival_time = self.m.addVars(
             [(k.pid, i.pid) for k, i in self.valid_visits],
-            vtype=GRB.INTEGER,
+            vtype=self.vtype_time,
             lb=0,
-            name="u",
+            name="arrival_time",
         )
-        # Load of compartment c of vehicle k at pickup node i
+
+    def add_var_load(self):
         self.m_var_load = self.m.addVars(
             [(k.pid, i.pid) for k, i in self.valid_visits],
             vtype=GRB.INTEGER,
             lb=0,
-            name="w",
+            name="load",
         )
-        # Ride time of request i serviced by vehicle k
+
+    def add_var_invehicle_delay(self):
+        invehicle_delay_tuples = []
+        ubs = []
+        lbs = []
+        for k, i in self.valid_visits:
+            if isinstance(i, NodePK):
+                invehicle_delay_tuples.append((k.pid, i.pid))
+                ubs.append(i.parent.max_total_delay)
+                lbs.append(0)
         self.m_var_invehicle_delay = self.m.addVars(
-            [(k.pid, i.pid) for k, i in self.valid_visits if isinstance(i, NodePK)],
-            vtype=GRB.INTEGER,
-            lb=0,
-            name="r",
+            tuplelist(invehicle_delay_tuples),
+            vtype=self.vtype_time,
+            lb=lbs,
+            ub=ubs,
+            name="invehicle_delay",
         )
 
     def setup_objective_function(self):
@@ -800,7 +706,6 @@ class ModelSQ:
             "SERVICE_TIER[{}]".format(sq_class),
         )
 
-
     def vehicle_carries_single_request_in_private_ride(self, request, sq_class):
         for k in self.vehicles:
             if (k, request.origin) in self.valid_visits:
@@ -861,7 +766,7 @@ class ModelSQ:
             (
                 self.m_var_pickup_delay[i.pid]
                 <=
-                + i.parent.max_total_delay
+                i.parent.max_total_delay
                 for i in Node.origins
             ),
             "SECOND_TIER",
@@ -873,7 +778,10 @@ class ModelSQ:
         self.m.addConstrs(
             (
                 self.m_var_pickup_delay[i.pid]
-                >= i.parent.max_pickup_delay * (1 - self.m_var_first_tier[i.pid])
+                <= (
+                        i.parent.max_pickup_delay * self.m_var_first_tier[i.pid]
+                        + i.parent.max_total_delay * (1 - self.m_var_first_tier[i.pid])
+                    )
                 for i in Node.origins
             ),
             "FIRST_TIER",
@@ -916,7 +824,7 @@ class ModelSQ:
         self.m.addConstrs(
             (
                 self.m_var_invehicle_delay[k.pid, i.pid]
-                <= i.parent.max_in_vehicle_delay
+                <= i.parent.max_total_delay - self.m_var_pickup_delay[i.pid]
                 for k, i, j in self.valid_rides
                 if (i, j) in Request.od_set
             ),
