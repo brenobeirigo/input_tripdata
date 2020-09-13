@@ -1,11 +1,9 @@
-import json
 import os
-from datetime import timedelta, datetime
-from pprint import pprint
 import random
+from pprint import pprint
+
 random.seed(1)
 from collections import namedtuple
-from collections import defaultdict
 import pandas as pd
 import numpy as np
 
@@ -18,7 +16,7 @@ import config
 import network_gen as nw
 import tripdata_gen as tp
 from model.Request import Request
-from model.Node import Node, NodePK, NodeDL, NodeDepot
+from model.Node import Node
 from model.Vehicle import Vehicle
 
 import milp.darp_sq as sq
@@ -119,17 +117,15 @@ def get_instances_from_folder(folder):
 
 
 def get_list_of_vehicles_in_region_centers(
-    max_capacity,
-    G,
-    start_datetime,
-    list_of_region_centers,
-    list_of_nodes_to_reach,
-    max_delay,
-    reachability_dict,
-    distance_dict,
-    fixed_capacity=False,
+        max_capacity,
+        start_datetime,
+        list_of_region_centers,
+        list_of_nodes_to_reach,
+        max_delay,
+        reachability_dict,
+        distance_dict,
+        fixed_capacity=False,
 ):
-
     vehicle_list = []
     logger.info(">>> List of nodes to reach:")
     logger.info("#Nodes to reach: {}".format(len(list_of_nodes_to_reach)))
@@ -142,12 +138,15 @@ def get_list_of_vehicles_in_region_centers(
                 max_trip_duration=max_delay,
             )
         )
-        logger.info("#Region centers: {}".format(len(set_centers_can_reach)))
+        logger.info("#Region centers: {} = {}".format(len(set_centers_can_reach), set_centers_can_reach))
 
         # Choose a center randomly to access the origin
         random.seed(1)
         random_center_id = random.choice(list(set_centers_can_reach))
-        lon, lat = nw.get_coords_node(random_center_id, G)
+        node_data = config.nodeset_gps[random_center_id]
+
+        print(node_data, random_center_id)
+        lon, lat = node_data["x"], node_data["y"]
 
         logger.info("Region center: {}".format(random_center_id))
         logger.info(
@@ -170,7 +169,6 @@ def get_list_of_vehicles_in_region_centers(
         )
         # min_capacity = max_capacity
         for capacity in range(min_capacity, max_capacity + 1):
-
             # Creating vehicle origin node
             depot_node = Node.factory_node(
                 Node.TYPE_DEPOT, lon, lat, network_node_id=random_center_id
@@ -193,7 +191,6 @@ def get_n_vehicles(n, capacity, G, start_datetime):
     vehicle_list = []
 
     for _ in range(0, n):
-
         # Getting random node info
         id, lon, lat = nw.get_random_node(G)
 
@@ -208,7 +205,6 @@ def get_n_vehicles(n, capacity, G, start_datetime):
 
 
 def config_log(logger, log_file_path):
-
     for hdlr in logger.handlers[:]:  # remove all old handlers
         logger.removeHandler(hdlr)
 
@@ -235,7 +231,6 @@ def config_log(logger, log_file_path):
 
 
 def run_milp():
-
     if not os.path.exists(config.root_static_instances_experiments):
         os.makedirs(config.root_static_instances_experiments)
 
@@ -247,37 +242,12 @@ def run_milp():
 
     # Hierarchical objective function (most important first)
     objective_function_order = [
-        sq.TOTAL_FLEET_CAPACITY,
         sq.TOTAL_DELAY,
-        #sq.TOTAL_RIDE_DELAY,
-        #sq.TOTAL_PICKUP_DELAY,
+        sq.N_FIRST_TIER,
+        sq.TOTAL_FLEET_CAPACITY,
+        # sq.TOTAL_RIDE_DELAY,
+        # sq.TOTAL_PICKUP_DELAY,
     ]
-
-    # Operational scenario
-    SCENARIO_FILE_PATH = config.root_path + "/scenario/week/allow_hiring.json"
-
-    # Reading scenario from file
-    with open(SCENARIO_FILE_PATH) as js:
-        scenario = json.load(js)
-
-        # Share of each class in customer base
-        customer_segmentation_dict = scenario["scenario_config"]["customer_segmentation"][
-            "BB"
-        ]
-
-        print("### CUSTOMER SEGMENTATION SCENARIO")
-        pprint(customer_segmentation_dict)
-
-        # Service quality dict
-        service_quality_dict = scenario["scenario_config"]["service_level"]
-
-        print("### SERVICE QUALITY SCENARIO")
-        pprint(service_quality_dict)
-
-        # Service rate
-        service_rate = scenario["scenario_config"]["service_rate"]["S2"]
-        print("### SERVICE RATE SCENARIO")
-        pprint(service_rate)
 
     # ******************************************************************
     # ******************************************************************
@@ -285,25 +255,11 @@ def run_milp():
     # ******************************************************************
     # ******************************************************************
 
-    # Getting network
-    G = nw.get_network_from(
-        config.tripdata["region"],
-        config.data_path,
-        config.graph_name,
-        config.graph_file_name,
-    )
-
     # Creating distance dictionary [o][d] -> distance
-    distance_dic = nw.get_distance_dic(config.path_dist_dic, G)
+    distance_dic = nw.get_distance_dic(config.path_dist_dic)
 
     # The reachability dictionary
-    reachability = nw.get_reachability_dic(
-        config.path_reachability_dic,
-        distance_dic,
-        step=config.step,
-        total_range=config.total_range,
-        speed_km_h=config.speed_km_h,
-    )
+    reachability = nw.get_reachability_dic(config.path_reachability_dic)
 
     # Region centers
     region_centers = nw.get_region_centers(config.path_region_centers, reachability)
@@ -333,35 +289,37 @@ def run_milp():
             print(f"Results is empty. Removing to start clean... {e}")
             os.remove(config.static_instances_results_path)
 
-    sq_paper = {
-        "A": {"pk_delay": 180, "sharing_preference": 0, "trip_delay": 180},
-        "B": {"pk_delay": 300, "sharing_preference": 1, "trip_delay": 600},
-        "C": {"pk_delay": 600, "sharing_preference": 1, "trip_delay": 900},
+    sq_heterogeneous = {
+        "A": {"pk_delay": 180, "sharing_preference": 0, "trip_delay": 420},
+        "B": {"pk_delay": 300, "sharing_preference": 1, "trip_delay": 420},
+        "C": {"pk_delay": 420, "sharing_preference": 1, "trip_delay": 420},
     }
 
-    sq_baseline_2 = {
-        "A": {"pk_delay": 360, "sharing_preference": 0, "trip_delay": 360},
-        "B": {"pk_delay": 600, "sharing_preference": 1, "trip_delay": 900},
-        "C": {"pk_delay": 1200, "sharing_preference": 1, "trip_delay": 1500},
+    sq_homogeneous = {
+        "A": {"pk_delay": 420, "sharing_preference": 0, "trip_delay": 420},
+        "B": {"pk_delay": 420, "sharing_preference": 1, "trip_delay": 420},
+        "C": {"pk_delay": 420, "sharing_preference": 1, "trip_delay": 420},
     }
 
-    sr_paper = {"A": 0.9, "B": 0.8, "C": 0.7}
-
-    sr_baseline_1 = {"A": 1, "B": 1, "C": 1}
-    sr_baseline_2 = {"A":1, "B": 1, "C": 1}
+    # sr_paper = {"A": 0.9, "B": 0.8, "C": 0.7}
+    sr_050 = {"A": 0.5, "B": 0.5, "C": 0.5}
+    sr_080 = {"A": 0.8, "B": 0.8, "C": 0.8}
+    sr_090 = {"A": 0.9, "B": 0.9, "C": 0.9}
+    sr_100 = {"A": 1.0, "B": 1.0, "C": 1.0}
 
     # Test lower and upper end for service rates
     tests = {
-        "slevels": (sq_paper, sr_paper),
-        "baseline_1": (sq_paper, sr_baseline_1),
-        "baseline_2": (sq_baseline_2, sr_baseline_2),
+        "slevels_050": (sq_heterogeneous, sr_050),
+        "slevels_080": (sq_heterogeneous, sr_080),
+        "slevels_090": (sq_heterogeneous, sr_090),
+        "slevels_100": (sq_heterogeneous, sr_100),
+        "status_quo": (sq_homogeneous, sr_100),
     }
-
 
     # Get the lowest pickup delay from all user class
     # Vehicles have to be able to access all nodes within the
     # minimum delay
-    minimum_delay = 180
+    minimum_delay = 150
 
     logger.info(
         "Region centers (maximum pickup delay of {} seconds):".format(minimum_delay)
@@ -369,7 +327,7 @@ def run_milp():
     pprint(region_centers[minimum_delay])
 
     pprint(list_processed_instances)
-    
+
     for i, instance in enumerate(instance_list):
         for test_label, (sq_dict, sr_dict) in tests.items():
 
@@ -378,7 +336,7 @@ def run_milp():
             if instance_label in list_processed_instances:
                 print("Instance '{}' already processed.".format(instance.base_name))
                 continue
-            
+
             # Stop reading instaces after max number is reached
             if max_number_instances and i >= max_number_instances:
                 break
@@ -391,7 +349,6 @@ def run_milp():
             print("### SERVICE RATE SCENARIO")
             pprint(sr_dict)
 
-            
             # Where to save solution log
             log_file_path = "{folder}/{test_label}__{basename}{feature}.log".format(
                 folder=config.root_static_instances_logs,
@@ -415,11 +372,9 @@ def run_milp():
             for r in requests:
                 logger.info(r.get_info())
 
-
             # Initialize vehicles in region centers
             vehicles = get_list_of_vehicles_in_region_centers(
                 config.MAX_VEHICLE_CAPACITY,
-                G,
                 config.START_DATE,
                 region_centers[minimum_delay],
                 Node.origins,
@@ -442,18 +397,18 @@ def run_milp():
             )
 
             # Creating vehicles
-            # print("Vehicles")
-            # for v in vehicles:
-            #     print(
-            #         v.get_info(),
-            #         [
-            #             "{}[#Passengers:{}]({})".format(
-            #                 o.pid, o.parent.demand, travel_time_dict[v.pos][o]
-            #             )
-            #             for o, dist in travel_time_dict[v.pos].items()
-            #             if dist < minimum_delay
-            #         ],
-            #     )
+            print("Vehicles")
+            for v in vehicles:
+                print(
+                    v.get_info(),
+                    [
+                        "{}[#Passengers:{}]({})".format(
+                            o.pid, o.parent.demand, travel_time_dict[v.pos][o]
+                        )
+                        for o, dist in travel_time_dict[v.pos].items()
+                        if dist < minimum_delay
+                    ],
+                )
 
             logger.info(
                 "#ODS:{} | #DEPOTS:{} | #ORIGINS:{} | #DESTINATIONS:{}".format(
@@ -498,7 +453,7 @@ def run_milp():
                 current_node.latest = (latest - config.START_DATE).total_seconds()
 
             # Save model at
-            milp_lp = "{}/{}__{}.log".format(
+            milp_lp = "{}/{}__{}.lp".format(
                 config.root_static_instances_lps, test_label, instance.base_name
             )
 
@@ -508,7 +463,7 @@ def run_milp():
             )
 
             # Run MILP for current instance
-            result_dict = sq.milp_sq_class(
+            model = sq.ModelSQ(
                 vehicles,
                 requests,
                 travel_time_dict,
@@ -520,6 +475,8 @@ def run_milp():
                 log_path=milp_log,
                 lp_path=milp_lp,
             )
+
+            result_dict = model.run()
 
             # **************************************************************
             # **************************************************************
@@ -566,7 +523,6 @@ def run_milp():
                 }
 
                 runtime = {"run_time": "{}".format(float(result_dict["runtime"]))}
-
 
                 r_info_mean = dict()
                 r_info_sum = {

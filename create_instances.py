@@ -1,11 +1,11 @@
-
-from model.Request import Request
-from datetime import datetime
-import tripdata_gen as gen
-import config
 import os
 import sys
+
 import pandas as pd
+
+import config
+import tripdata_gen as gen
+from model.Request import Request
 
 # Adding project folder
 root = os.getcwd().replace("\\", "/")
@@ -19,38 +19,38 @@ sys.path.append(root)
 #  - pickup_latitude, pickup_longitude,
 #  - dropoff_latitude, dropoff_longitude
 
-tripdata_filename = "tripdata_excerpt_2011-2-1_2011-2-28_ids.csv"
-tripdata_csv_path = f"{config.root_tripdata}/{tripdata_filename}"
+tripdata_csv_path = "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/tripdata/ids/tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv"
+
+print("Trip data:", tripdata_csv_path)
 
 print("Folder instances:", config.root_static_instances_experiments)
-print("Trip data file:", tripdata_filename)
+# print("Trip data file:", tripdata_filename)
 
 
 # FOLDERS
 
 # Where data is saved
-root_static_instances_experiments = config.root_static_instances + "/experiments2"
-
-# Label of the area
-area_tripdata = config.graph_name
+root_static_instances_experiments = config.root_static_instances + "/experiments"
 
 # INSTANCES CONFIGURATION
+
+min_datetime = "2011-02-01 18:00:00"
 
 # Service levels per class
 service_level = {
     "A": {
         "pk_delay": 180,
-        "trip_delay": 180,
+        "trip_delay": 420,
         "sharing_preference": 0
     },
     "B": {
         "pk_delay": 300,
-        "trip_delay": 600,
+        "trip_delay": 420,
         "sharing_preference": 1
     },
     "C": {
-        "pk_delay": 600,
-        "trip_delay": 900,
+        "pk_delay": 420,
+        "trip_delay": 420,
         "sharing_preference": 1
     }
 }
@@ -82,15 +82,15 @@ user_segmentation_dict = {
     #     "B": 0.00,
     #     "C": 1.00
     # },
-    # "B": {
-    #     "A": 0.00,
-    #     "B": 1.00,
-    #     "C": 0.00
-    # }
+    "B": {
+        "A": 0.00,
+        "B": 1.00,
+        "C": 0.00
+    }
 }
 
 # How many requests will be pulled?
-demand_sizes = [5, 20]
+demand_sizes = [10]
 
 # HOW MANY TEST CASES PER INSTANCE?
 repeat = 5
@@ -108,11 +108,12 @@ if __name__ == "__main__":
     # ******************************************************************
 
     gen.create_instances_exact_sol(
-        area_tripdata,
+        config.area_tripdata,
         demand_sizes,
         user_segmentation_dict,
         tripdata_csv_path,
         root_static_instances_experiments,
+        min_datetime,
         repeat=repeat,
         uniform_passenger_count=uniform_passenger_count
     )

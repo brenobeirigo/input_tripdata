@@ -1,18 +1,14 @@
 import random
+
 random.seed(1)
-import pprint
-from datetime import datetime, date, time, timedelta
 import collections
-from model.Leg import Leg
 from model.Route import Route
-import json
-import time
 from collections import OrderedDict
 
-class Vehicle:
 
+class Vehicle:
     n_vehicles = 0
-    
+
     def __init__(self, pos, capacity, available_at, type_vehicle=None):
 
         self.id = Vehicle.n_vehicles
@@ -36,14 +32,14 @@ class Vehicle:
 
         # Setup initial operation settings
         self.reset()
-    
+
     @classmethod
     def reset_elements(cls):
-        
+
         cls.n_vehicles = 0
 
     def reset(self):
-        
+
         # Average occupancy of vehicle's compartments in relation
         # to travel_time
         self.avg_occupancy_c = {}
@@ -64,8 +60,6 @@ class Vehicle:
         if len(self.path.keys()) <= 2:
             return False
         return True
-   
-
 
     def add_node(self, node):
         self.path[node.id] = node
@@ -88,7 +82,7 @@ class Vehicle:
     def pid(self):
         return "V{id}({capacity})".format(
             id=self.id,
-            capacity = self.capacity
+            capacity=self.capacity
         )
 
     def get_info(self):
@@ -98,7 +92,7 @@ class Vehicle:
             self.pos,
             self.capacity
         )
-    
+
     def __repr__(self):
         return str(self) + super().__repr__()
 
@@ -132,7 +126,6 @@ class Vehicle:
 
             # Get the current (destination) node
             destination = leg.destination
-
 
             # Distance disconsidering pk/dp service time
             dist = self.route.legs_dic[(
@@ -184,15 +177,14 @@ class Vehicle:
 
             # Remove not occupied compartments
             occupation_log_c = {
-            c: occupation_log_c[c]
-            for c in occupation_log_c.keys()
-            if occupation_log_c[c] != 0}
-            
+                c: occupation_log_c[c]
+                for c in occupation_log_c.keys()
+                if occupation_log_c[c] != 0}
 
             # Store leg occupation log
             leg.occupation_log_c = occupation_log_c
 
-            #print("LOAD_ORIGIN", load_origin, "OCC. Log:", occupation_log_c)
+            # print("LOAD_ORIGIN", load_origin, "OCC. Log:", occupation_log_c)
 
             self.route.legs_dic[(
                 origin, destination)].load_origin_dic = load_origin
@@ -224,7 +216,7 @@ class Vehicle:
     #         s = self.id + ' - ' + self.type_vehicle + ' - (' + str(self.pos) +')' + ",still,"
     #         s += "-".join(['{0:>3}:{1:<3}'.format(k, v)
     #                        for k, v in self.capacity.items()])
-            
+
     #         js += '"vehicle_id": "' + self.id + '"'
     #         js += ', "vehicle_is_used": true'
     #         js += ', "vehicle_compartment_set":['
@@ -262,7 +254,6 @@ class Vehicle:
     #         print(v)"""
 
     #     return str(s)
-
 
     # def __str__(self):
     #     # Get the list of nodes ordered by visitation order
@@ -306,13 +297,13 @@ class Vehicle:
     #     for v in self.route.legs_dic.values():
     #         print(v)"""
     #     return str(s)
-    
+
     def get_json(self):
         print("COLOR:", self.color)
         js = '{'
         js += '"vehicle_id": "' + self.id + '"'
         js += ', "vehicle_is_used":' + str(self.is_used()).lower()
-        js += ', "vehicle_color": "' + self.color+ '"'
+        js += ', "vehicle_color": "' + self.color + '"'
         js += ', "available_at":"{0}"'.format(
             Node.get_formatted_time(self.available_at))
         js += ', "lat":' + str(self.pos.coord.y)

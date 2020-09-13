@@ -141,95 +141,15 @@ def download_network(region, network_type):
     return G
 
 
-def get_reachability_dic(
-    data_path, distance_dic, step=30, total_range=600, speed_km_h=30
-):
-    """Which nodes are reachable from one another in "step" steps?
-    E.g.:
-    Given the following distance dictionary:
+def get_reachability_dic(data_path):
 
-    FROM    TO   DIST(s)
-    2       1     35
-    3       1     60
-    4       1     7
-    5       1     20
-
-    If step = 30, the reachability set for 1 is:
-    reachable[1][30] = set([4, 5]).
-
-    In other words, node 1 can be reached from nodes 4 and 5 in
-    less than 30 steps.
-
-    Hence, for a given OD pair (o, d) and step = s, if o in 
-    reachable[d][s], then d can be reached from o in t steps.
-
-    Arguments:
-        distance_dic {dict{float}} -- Distance dictionary
-            (dic[o][d] = dist(o,d))
-        data_path {str} -- Where to save reachability dictionary
-
-    Keyword Arguments:
-
-        step {int} -- The minimum reachability distance that multiplies
-            until it reaches the total range.
-        total_range{int} -- Total range used to define concentric
-            reachability, step from step. Considered a multiple of step.
-        speed_kh_h {int} -- in km/h to convert distance
-            (default: {30} km_h). If different of None, 'step' and
-            'total_range' are considered in seconds.
-
-    Returns:
-        [dict] -- Reachability structure.
-                  E.g.: reachable[d][step] = set([o_1, o_2, o_3, o_n])
-                  IMPORTANT: for the sake of memory optimization, nodes
-                  from step 'x' are NOT included in step 'x+1'.
-                  Use 'get_can_reach_set' to derive the overall 
-                  reachability, across the full range.
-    """
-
-    reachability_dict = None
     try:
-        reachability_dict = np.load(data_path).item()
+        reachability_dict = np.load(data_path, allow_pickle=True).item()
         print("Reading reachability dictionary '{}'...".format(data_path))
+        return reachability_dict
 
-    except:
-
-        reachability_dict = defaultdict(lambda: defaultdict(set))
-
-        # E.g., [30, 60, 90, ..., 600]
-        steps_in_range_list = [
-            i for i in range(step, total_range + step, step)
-        ]
-        print(
-            ("Calculating reachability...\n" + "Steps:{}").format(
-                steps_in_range_list
-            )
-        )
-
-        for o in distance_dic.keys():
-            for d in distance_dic[o].keys():
-
-                # Dictionary contains only valid distances
-                dist_m = distance_dic[o][d]
-
-                # So far, we are using distance in meters
-                dist = dist_m
-
-                # If speed is provided, convert distance to seconds
-                # Steps are assumed to be in seconds too
-                if speed_km_h:
-                    dist_s = int(3.6 * dist_m / speed_km_h + 0.5)
-                    dist = dist_s
-
-                # Find the index of which max_duration box dist_s is in
-                step_id = bisect.bisect_left(steps_in_range_list, dist)
-                if step_id < len(steps_in_range_list):
-                    reachability_dict[d][steps_in_range_list[step_id]].add(o)
-                    # print("o: {} -> d: {} - dist_km: {} - dist_s: {} - index: {} - reachable in(s): {}".format(o,d, dist_m, dist_s, step, max_travel_time_list[step]))
-        # print(reachability_dict)
-        np.save(data_path, dict(reachability_dict))
-
-    return reachability_dict
+    except Exception as e:
+        print(f"Reading failed! Exception: \"{e}\".")
 
 
 def get_can_reach_set(n, reach_dic, max_trip_duration=150):
@@ -524,7 +444,7 @@ def get_random_node(G):
 
 
 def get_coords_node(n, G):
-    return G.node[n]["x"], G.node[n]["y"]
+    return G.nodes[n]["x"], G.nodes[n]["y"]
 
 
 @functools.lru_cache(maxsize=1048576)
@@ -532,7 +452,7 @@ def get_distance(G, o, d):
     return nx.dijkstra_path_length(G, o, d, weight="length")
 
 
-def get_distance_dic(data_path, G):
+def get_distance_dic(data_path):
     """Get distance dictionary (Dijkstra all to all using path length).
     E.g.: [o][d]->distance
 
@@ -548,15 +468,11 @@ def get_distance_dic(data_path, G):
         print(
             "Trying to read distance data from file:\n'{}'.".format(data_path)
         )
-        distance_dic_m = np.load(data_path).item()
+        distance_dic_m = np.load(data_path, allow_pickle=True).item()
 
-    except:
-        print("Reading failed! Calculating shortest paths...")
-        all_dists_gen = nx.all_pairs_dijkstra_path_length(G, weight="length")
-
-        # Save with pickle (meters)
-        distance_dic_m = dict(all_dists_gen)
-        np.save(data_path, distance_dic_m)
+    except Exception as e:
+        print(
+            f"Reading failed! Exception: \"{e}\". Calculating shortest paths...")
 
     print(
         "Distance data load successfully. #Nodes:",
@@ -652,122 +568,45 @@ def get_region_centers(
         data_path=None,
         time_limit=60):
     """Find minimum number of region centers, every 'step'
-    
+
     ILP from:
       Wallar, A., van der Zee, M., Alonso-Mora, J., & Rus, D. (2018).
       Vehicle Rebalancing for Mobility-on-Demand Systems with 
       Ride-Sharing. Iros, 4539–4546.
-    
+
     Why using regions?
     The region centers are computed a priori and are used to aggregate
     requests together so the rate of requests for each region can be
     computed. These region centers are also used for rebalancing as
     they are the locations that vehicles are proactively sent to.
-    
+
     Arguments:
         path_region_centers {str} -- Path to save/load dictionary of
             region centers.
         reachability_dic {dict{int:dict{int:set}} -- Stores the set
             's' of nodes that can reach 'target' node in less then 't'
             time steps.  E.g.: reachability_dic[target][max_delay] = s
-    
+
     Keyword Arguments:
         data_path {str} -- Location where intermediate work (i.e.,
             previous max. durations from reachability dictionary), and
             model logs should be saved. (default: {None})
         time_limit {int} -- Expiration time (in seconds) of the ILP
             model execution (default: {60})
-    
+
     Returns:
         [type] -- [description]
     """
 
-    
-
     # Dictionary relating max_delay to region centers
 
     centers_dic = None
-    if  os.path.isfile(path_region_centers):
-        centers_dic = np.load(path_region_centers).item()
+    if os.path.isfile(path_region_centers):
+        centers_dic = np.load(path_region_centers, allow_pickle=True).item()
         print(
             "\nReading region center dictionary...\nSource: '{}'.".format(
                 path_region_centers
             )
         )
 
-    else:
-        # TODO invert keys in reachability dict. First: steps!
-        any_key = next(iter(reachability_dic))
-        max_trip_duration_list = list(reachability_dic[any_key].keys())
-
-        print(
-            (
-                "\nCalculating region center dictionary..."
-                "\nMax. durations: {}"
-                "\nTarget path: '{}'."
-                
-            ).format(
-                max_trip_duration_list,
-                path_region_centers
-            )
-        )
-        # If not None, defines the location of the steps of a solution
-        centers_gurobi_log = None
-        centers_sub_sols = None
-
-        if data_path is not None:
-            # Create folder to save logs
-            centers_gurobi_log = "{}/region_centers/gurobi_log".format(
-                data_path
-            )
-
-            if not os.path.exists(centers_gurobi_log):
-                os.makedirs(centers_gurobi_log)
-            
-            # Create folder to save intermediate work, that is, previous
-            # max_delay steps.
-            centers_sub_sols = "{}/region_centers/sub_sols".format(data_path)
-            
-            if not os.path.exists(centers_sub_sols):
-                os.makedirs(centers_sub_sols)
-
-        centers_dic = dict()
-        for max_delay in sorted(max_trip_duration_list):
-            
-            if centers_sub_sols is not None:
-                # Name of intermediate region centers file for 'max_delay'
-                file_name = "{}/{}.npy".format(centers_sub_sols, max_delay)
-
-                # Pre-calculated region center is loaded in case it exists.
-                # This helps filling the complete 'centers_dic' without
-                # starting the process from the beginning, in case an error
-                # has occured.
-                if os.path.isfile(file_name):
-                    # Load max delay in centers_dic
-                    centers_dic[max_delay] = np.load(file_name)
-                    print(file_name, "already calculated.")
-                    continue
-
-            try:
-                # Find the list of centers for max_delay
-                centers = ilp.ilp_node_reachability(
-                    reachability_dic,
-                    max_delay=max_delay,
-                    log_path=centers_gurobi_log,
-                    time_limit=time_limit,
-                )
-            except Exception as e:
-                print(e)
-            else:
-                centers_dic[max_delay] = centers
-                print(
-                    "Max. delay: {} = # Nodes: {}".format(max_delay, len(centers))
-                )
-
-                # Save intermediate steps (region centers of 'max_delay')
-                if data_path:
-                    np.save(file_name, centers)
-
-                np.save(path_region_centers, centers_dic)
-                
     return centers_dic

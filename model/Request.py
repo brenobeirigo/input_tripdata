@@ -41,7 +41,7 @@ class Request(object):
         pickup_longitude=None,
         dropoff_latitude=None,
         dropoff_longitude=None,
-        service_class = None,
+        service_class=None,
         service_duration = 0):
         """[summary]
         

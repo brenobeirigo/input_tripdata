@@ -611,6 +611,7 @@ def create_instances_exact_sol(
         user_base_segmentation_dict,
         tripdata_csv_path,
         target_folder,
+        min_datetime_str=None,
         repeat=1,
         uniform_passenger_count=None):
 
@@ -621,6 +622,17 @@ def create_instances_exact_sol(
     )
     min_date = min(df.index)
     max_date = max(df.index)
+
+    if min_datetime_str:
+        min_datetime = datetime.strptime(
+            min_datetime_str,
+            '%Y-%m-%d %H:%M:%S'
+        )
+
+        min_date = max(min_date, min_datetime)
+        df = df[df.index >= min_datetime_str]
+        print("SET MINDATE:", min_datetime)
+
 
     for i in range(1, repeat+1):
         for demand_size in demand_size_list:

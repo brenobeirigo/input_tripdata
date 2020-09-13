@@ -1,6 +1,6 @@
-from model.Coordinate import Coordinate
 from datetime import *
-import time
+
+from model.Coordinate import Coordinate
 
 
 # Class node
@@ -19,7 +19,7 @@ class Node:
     destinations = set()
     ods = set()
 
-    def __init__(self, x, y, network_node_id=None, service_duration = 0):
+    def __init__(self, x, y, network_node_id=None, service_duration=0):
         self.id = Node.get_n_nodes()
         self.coord = Coordinate(x, y)
         self.network_node_id = network_node_id
@@ -30,7 +30,7 @@ class Node:
 
     @classmethod
     def reset_elements(cls):
-        
+
         # Number of pickup/delivery nodes
         cls.n_nodes = 1
         # Number of depots
@@ -56,7 +56,7 @@ class Node:
 
     @staticmethod
     def get_formatted_time(time):
-        
+
         if time == 0:
             return "---------- --:--:--"
         elif type(time) == datetime:
@@ -79,7 +79,6 @@ class Node:
         else:
             return datetime.fromtimestamp(int(time), timezone.utc).strftime('%H:%M:%S')
 
-    
     @staticmethod
     def get_formatted_duration_m(time):
         if time == 0:
@@ -113,15 +112,15 @@ class Node:
         return Node.d_nodes
 
     @classmethod
-    def factory_node(cls, type_node, x, y, demand=None, parent=None, network_node_id=None, service_duration = 0):
+    def factory_node(cls, type_node, x, y, demand=None, parent=None, network_node_id=None, service_duration=0):
         if type_node == cls.TYPE_DESTINATION:
-            d = NodeDL(x, y, demand, parent, network_node_id=network_node_id, service_duration = service_duration)
+            d = NodeDL(x, y, demand, parent, network_node_id=network_node_id, service_duration=service_duration)
             cls.destinations.add(d)
             cls.ods.add(d)
             return d
 
         elif type_node == cls.TYPE_ORIGIN:
-            o = NodePK(x, y, demand, parent, network_node_id=network_node_id, service_duration = service_duration)
+            o = NodePK(x, y, demand, parent, network_node_id=network_node_id, service_duration=service_duration)
             cls.origins.add(o)
             cls.ods.add(o)
             return o
@@ -130,26 +129,27 @@ class Node:
             depot = NodeDepot(x, y, network_node_id=network_node_id)
             cls.depots.add(depot)
             return depot
-            
+
         else:
             return None
 
     def __str__(self):
         return "_{:04}".format(self.id)
-    
+
     def __repr__(self):
         return str(self) + super().__repr__()
 
+
 # Pickup node
 class NodePK(Node):
-    def __init__(self, x, y, demand, parent, network_node_id=None, service_duration = 0):
-        super().__init__(x, y, network_node_id=network_node_id, service_duration = service_duration)
+    def __init__(self, x, y, demand, parent, network_node_id=None, service_duration=0):
+        super().__init__(x, y, network_node_id=network_node_id, service_duration=service_duration)
         self.demand = demand
         self.parent = parent
 
     def __str__(self):
         return "O{}".format(super().__str__())
-    
+
     @property
     def pid(self):
         """Print node with parent id.
@@ -159,19 +159,20 @@ class NodePK(Node):
         """
 
         return "O{}".format(self.parent.id)
-        
+
     def get_info(self):
         return self.parent + " - " + Node.get_formatted_time(self.arrival_t) \
-            + '  |' + self.id + '|' \
-            + ' - LOAD: ' \
-            + str({id: int(self.load[id])
-                   for id in self.load.keys()
-                   if int(self.load[id]) > 0})
-                
+               + '  |' + self.id + '|' \
+               + ' - LOAD: ' \
+               + str({id: int(self.load[id])
+                      for id in self.load.keys()
+                      if int(self.load[id]) > 0})
+
+
 # Delivery node
 class NodeDL(Node):
-    def __init__(self, x, y, demand, parent, network_node_id=None, service_duration = 0):
-        super().__init__(x, y, network_node_id=network_node_id, service_duration = service_duration)
+    def __init__(self, x, y, demand, parent, network_node_id=None, service_duration=0):
+        super().__init__(x, y, network_node_id=network_node_id, service_duration=service_duration)
         self.demand = demand
         self.parent = parent
 
@@ -188,24 +189,24 @@ class NodeDL(Node):
 
         return "D{}".format(self.parent.id)
 
-
     def get_info(self):
         # return '|DL|' + super().__str__() + ' - LOAD: ' + str({id:int(self.load[id]) for id in self.load.keys() if int(self.load[id])>0}) + ' - ARR: ' + datetime.fromtimestamp(int(self.arrival_t)).strftime('%Y-%m-%d %H:%M:%S')
-        return self.parent + " - " + Node.get_formatted_time(self.arrival_t) + '  |' + self.id + '|' + ' - LOAD: ' + str({id: int(self.load[id]) for id in self.load.keys() if int(self.load[id]) > 0})
+        return self.parent + " - " + Node.get_formatted_time(
+            self.arrival_t) + '  |' + self.id + '|' + ' - LOAD: ' + str(
+            {id: int(self.load[id]) for id in self.load.keys() if int(self.load[id]) > 0})
 
 
 # Departure/arrival node
 class NodeDepot(Node):
 
-    def __init__(self, x, y, parent=None, network_node_id=None, service_duration = 0):
-        super().__init__(x, y, network_node_id=network_node_id, service_duration = service_duration)
+    def __init__(self, x, y, parent=None, network_node_id=None, service_duration=0):
+        super().__init__(x, y, network_node_id=network_node_id, service_duration=service_duration)
         self.parent = parent
         self.demand = None
 
     def __str__(self):
         return "X{}".format(super().__str__())
-    
-    
+
     @property
     def pid(self):
         """Print node with parent id.
