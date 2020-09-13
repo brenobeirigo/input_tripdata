@@ -26,7 +26,7 @@ graph_folder = mapdata["graph_folder"]
 root_tripdata = mapdata["root_tripdata"]
 tripdata_filename = mapdata["tripdata_filename"]
 area_tripdata = mapdata["area_tripdata"]
-
+tripdata_csv_path = root_tripdata + tripdata_filename
 nodeset_gps_path = mapdata["nodeset_gps_path"]
 
 with open(nodeset_gps_path) as js:

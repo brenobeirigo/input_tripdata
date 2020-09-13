@@ -19,9 +19,7 @@ sys.path.append(root)
 #  - pickup_latitude, pickup_longitude,
 #  - dropoff_latitude, dropoff_longitude
 
-tripdata_csv_path = "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/tripdata/ids/tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv"
-
-print("Trip data:", tripdata_csv_path)
+print("Trip data:", config.tripdata_csv_path)
 
 print("Folder instances:", config.root_static_instances_experiments)
 # print("Trip data file:", tripdata_filename)
@@ -111,7 +109,7 @@ if __name__ == "__main__":
         config.area_tripdata,
         demand_sizes,
         user_segmentation_dict,
-        tripdata_csv_path,
+        config.tripdata_csv_path,
         root_static_instances_experiments,
         min_datetime,
         repeat=repeat,
