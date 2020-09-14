@@ -16,7 +16,7 @@ logger.setLevel(logging.DEBUG)
 
 import config
 import network_gen as nw
-import tripdata_gen as tp
+from demand import tripdata_gen as tp
 from model.Request import Request
 from model.Node import Node
 from model.Vehicle import Vehicle

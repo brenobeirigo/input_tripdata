@@ -5,7 +5,7 @@ import sys
 root = os.getcwd().replace("\\", "/")
 sys.path.append(root)
 
-import tripdata_gen as gen
+from demand import tripdata_gen as gen
 
 if __name__ == "__main__":
 

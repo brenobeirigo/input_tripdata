@@ -3,7 +3,7 @@ import os
 import pandas as pd
 
 import config
-import tripdata_gen as gen
+from demand import tripdata_gen as gen
 from model.Request import Request
 
 if __name__ == "__main__":

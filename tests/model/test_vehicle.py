@@ -1,11 +1,8 @@
 import config
-import osmnx as ox
 import network_gen as gen
 from model.Vehicle import Vehicle
 from model.Node import *
-import tripdata_gen as tp
 from datetime import datetime
-from pprint import pprint
 
 G = gen.get_network_from(config.tripdata["region"],
                             config.data_path,

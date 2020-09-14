@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 
 # If defined, step and total_range are assumed to be seconds
-speed_km_h = 60
+
 MAX_VEHICLE_CAPACITY = 4
 
 # Setup time limit (seconds)
@@ -43,6 +43,7 @@ with open("config/config_testcase_sec.json") as js:
     uniform_passenger_count = config_testcase["uniform_passenger_count"]
     service_level = config_testcase["service_level"]
     scenario = config_testcase["scenario"]
+    speed_km_h = config_testcase["speed_km_h"]
 
 root_static_instances = mapdata["output_path"]
 root_static_instances_experiments = root_static_instances + "/experiments"

@@ -4,7 +4,7 @@ import sys
 root = os.getcwd().replace("\\", "/")
 sys.path.append(root)
 
-import tripdata_gen as gen
+from demand import tripdata_gen as gen
 from model.Request import Request
 
 if __name__ == "__main__":

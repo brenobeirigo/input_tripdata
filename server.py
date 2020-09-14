@@ -1,5 +1,4 @@
 import functools
-import json
 
 import pandas as pd
 from flask import Flask, jsonify
@@ -9,7 +8,6 @@ from waitress import serve
 
 import config
 import network_gen as nw
-import tripdata_gen as tp
 
 # Showing more columns
 pd.set_option("display.max_columns", 100)
