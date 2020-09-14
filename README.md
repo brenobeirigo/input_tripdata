@@ -45,7 +45,7 @@ Logs are saved in `ilps` and `logs` folders.
 Generates a complete trip data sandbox to study pickup and delivery problems.
 
 
-Change the file `config/config_tripdata.json` to choose the region as well as the trip data settings.
+Change the file `config_tripdata/config_tripdata.json` to choose the region as well as the trip data settings.
 
 The following snippet, for example, chooses the New York street network, and defines the range of request entries that will be pulled from the NYC-TLC trip dataset:
 
