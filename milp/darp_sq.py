@@ -784,7 +784,16 @@ class ModelSQ:
                 )
                 for i in Node.origins
             ),
-            "FIRST_TIER",
+            "FIRST_TIER_RIGHT",
+        )
+
+        self.m.addConstrs(
+            (
+                self.m_var_pickup_delay[i.pid]
+                >= i.parent.max_pickup_delay * (1 - self.m_var_first_tier[i.pid])
+                for i in Node.origins
+            ),
+            "FIRST_TIER_LEFT",
         )
 
     def earliest_pickup_greater_than_earliest_arrival(self):
