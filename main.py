@@ -1,8 +1,6 @@
 import os
 import network_gen as gen
-import tripdata_gen as tp
-import sys  # Reading arguments
-import json
+from demand import tripdata_gen as tp
 from pprint import pprint
 import config
 
