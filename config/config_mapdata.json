@@ -1,0 +1,15 @@
+{
+  "area_tripdata": "manhattan",
+  "path_dist_matrix": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",
+  "path_dist_dic": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_dict_m.npy",
+  "path_reachability_dic": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/map/reachability_reg_centers_3_kmh30/reach_dict.npy",
+  "path_region_centers": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/map/reachability_reg_centers_3_kmh30/region_centers.npy",
+  "nodeset_gps_path": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/nodeset_gps.json",
+  "path_tripdata": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/tripdata/ids/tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv",
+  "root_tripdata": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/tripdata/ids/",
+  "tripdata_filename": "tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv",
+  "graph_folder":"C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/map/",
+  "graph_file_name": "manhattan.graphml",
+  "mip_logs": "C:/mip_logs",
+  "output_path": "C:/Users/LocalAdmin/OneDrive/leap_forward/phd_project/sqc/code/input_tripdata/data/manhattan-island-new-york-city-new-york-usa/static_instances/"
+}
