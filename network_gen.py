@@ -1,13 +1,12 @@
-import osmnx as ox
-import networkx as nx
-import os
-import pandas as pd
-import numpy as np
-import bisect
-import milp.ilp_reachability as ilp
-from collections import defaultdict
 import functools
+import os
 import random
+
+import networkx as nx
+import numpy as np
+import osmnx as ox
+import pandas as pd
+
 random.seed(1)
 
 
@@ -87,6 +86,7 @@ dic_old_new = dict()
 # Global id counter
 i = -1
 
+
 # Relabel
 
 
@@ -142,7 +142,6 @@ def download_network(region, network_type):
 
 
 def get_reachability_dic(data_path):
-
     try:
         reachability_dict = np.load(data_path, allow_pickle=True).item()
         print("Reading reachability dictionary '{}'...".format(data_path))
